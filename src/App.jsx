@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
-const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+//const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
+//const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+
+const KAKAO_JS_KEY = '061ee82c589939c377c6dd83daf03cfb'
+const BACKEND_URL = 'https://zv6w3k3tt3.execute-api.ap-northeast-2.amazonaws.com/v1/'
+
 
 function useKakaoLoader() {
 	const [loaded, setLoaded] = useState(false)
