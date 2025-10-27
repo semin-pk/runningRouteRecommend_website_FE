@@ -128,8 +128,8 @@ function MapPicker({ onPick }) {
 	if (error) {
 		return (
 			<div>
-				<div style={{ width: '100%', height: 360, borderRadius: 8, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
-					<div style={{ textAlign: 'center', color: '#666' }}>
+				<div className="map-error">
+					<div style={{ textAlign: 'center', color: '#721c24' }}>
 						<div>❌ {error}</div>
 						<div style={{ fontSize: 12, marginTop: 8 }}>카카오 지도 API 키를 확인해주세요</div>
 					</div>
@@ -141,7 +141,7 @@ function MapPicker({ onPick }) {
 	if (!loaded) {
 		return (
 			<div>
-				<div style={{ width: '100%', height: 360, borderRadius: 8, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+				<div className="map-loading">
 					<div style={{ textAlign: 'center', color: '#666' }}>
 						<div>🔄 카카오 지도 로딩 중...</div>
 					</div>
@@ -152,8 +152,8 @@ function MapPicker({ onPick }) {
 
 	return (
 		<div>
-			<div ref={ref} style={{ width: '100%', height: 360, borderRadius: 8, border: '1px solid #ddd' }} />
-			<div style={{ marginTop: 8, fontSize: 14 }}>
+			<div ref={ref} className="map-container" />
+			<div className="map-coords">
 				{coords ? `선택 위치: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : '지도를 클릭하여 시작 위치를 선택하세요'}
 			</div>
 		</div>
@@ -278,13 +278,15 @@ export default function App() {
 	}
 
 	return (
-		<div style={{ maxWidth: 960, margin: '0 auto', padding: 16 }}>
-			<h2>🏃‍♂️ 러닝 코스 랜덤 추천</h2>
+		<div className="app-container">
+			<header className="app-header">
+				<h2 className="app-title">러닝 코스 랜덤 추천</h2>
+			</header>
 			<MapPicker onPick={onPick} />
 			
-			<div style={{ marginTop: 16 }}>
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-					<div>
+			<div className="form-container">
+				<div className="input-grid">
+					<div className="input-group">
 						<label>총 러닝 거리 (km)</label>
 						<input 
 							type="number" 
@@ -292,13 +294,12 @@ export default function App() {
 							min={1} 
 							step={0.5} 
 							onChange={(e) => setTotalDistanceKm(Number(e.target.value))} 
-							style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ddd' }} 
 						/>
 					</div>
-					<div>
+					<div className="input-group">
 						<label>왕복/편도</label>
-						<div style={{ display: 'flex', gap: 20, marginTop: 4, justifyContent: 'center' }}>
-							<label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+						<div className="radio-group">
+							<label className="radio-option">
 								<input 
 									type="radio" 
 									checked={isRoundTrip} 
@@ -306,7 +307,7 @@ export default function App() {
 								/>
 								왕복
 							</label>
-							<label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+							<label className="radio-option">
 								<input 
 									type="radio" 
 									checked={!isRoundTrip} 
@@ -318,24 +319,17 @@ export default function App() {
 					</div>
 				</div>
 
-				<div style={{ marginBottom: 16 }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+				<div className="waypoints-section">
+					<div className="waypoints-header">
 						<div>
-							<label>경유지 설정</label>
-							<div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+							<label className="waypoints-title">경유지 설정</label>
+							<div className="waypoints-subtitle">
 								드래그하여 순서를 변경할 수 있습니다
 							</div>
 						</div>
 						<button 
 							onClick={addWaypoint}
-							style={{ 
-								padding: '4px 12px', 
-								backgroundColor: '#28a745', 
-								color: 'white', 
-								border: 'none', 
-								borderRadius: 4,
-								cursor: 'pointer'
-							}}
+							className="add-waypoint-btn"
 						>
 							+ 경유지 추가
 						</button>
@@ -349,48 +343,22 @@ export default function App() {
 							onDragOver={handleDragOver}
 							onDrop={(e) => handleDrop(e, waypoint.order)}
 							onDragEnd={handleDragEnd}
-							style={{ 
-								display: 'flex', 
-								alignItems: 'center', 
-								gap: 8, 
-								marginBottom: 8,
-								padding: 8,
-								backgroundColor: draggedItem === waypoint.order ? '#e3f2fd' : '#f8f9fa',
-								borderRadius: 4,
-								cursor: 'move',
-								border: draggedItem === waypoint.order ? '2px dashed #2196f3' : '1px solidrgb(6, 85, 163)',
-								opacity: draggedItem === waypoint.order ? 0.7 : 1,
-								transition: 'all 0.2s ease'
-							}}
+							className={`waypoint-item ${draggedItem === waypoint.order ? 'dragging' : ''}`}
 						>
-							<span style={{ 
-								minWidth: 20, 
-								fontWeight: 'bold',
-								color: 'rgb(25, 24, 24)',
-								display: 'flex',
-								alignItems: 'center',
-								gap: 4
-							}}>
-								<span style={{ fontSize: 12 , color: 'rgb(87, 89, 90)'}}>⋮⋮</span>
+							<span className="waypoint-order">
+								<span className="drag-handle">⋮⋮</span>
 								{waypoint.order}
 							</span>
 							<input 
 								value={waypoint.theme_keyword}
 								onChange={(e) => updateWaypoint(waypoint.order, e.target.value)}
 								placeholder="경유지 키워드 (예: 카페, 맛집, 맥주)"
-								style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #ddd' }}
+								className="waypoint-input"
 								onMouseDown={(e) => e.stopPropagation()}
 							/>
 							<button 
 								onClick={() => removeWaypoint(waypoint.order)}
-								style={{ 
-									padding: '4px 8px', 
-									backgroundColor: 'rgb(13, 2, 4)', 
-									color: 'white', 
-									border: 'none', 
-									borderRadius: 4,
-									cursor: 'pointer'
-								}}
+								className="remove-waypoint-btn"
 							>
 								×
 							</button>
@@ -398,32 +366,24 @@ export default function App() {
 					))}
 				</div>
 
-				<div style={{ textAlign: 'center' }}>
+				<div className="submit-container">
 					<button 
 						disabled={!canSubmit || loading} 
 						onClick={submit} 
-						style={{ 
-							padding: '12px 24px', 
-							backgroundColor: canSubmit && !loading ? '#007bff' : '#ccc', 
-							color: 'white', 
-							border: 'none', 
-							borderRadius: 4,
-							fontSize: 16,
-							cursor: canSubmit && !loading ? 'pointer' : 'not-allowed'
-						}}
+						className="submit-btn"
 					>
 						{loading ? '추천중...' : '러닝 코스 추천 받기'}
 					</button>
 				</div>
 			</div>
 
-			{error && <div style={{ color: 'crimson', marginTop: 12, padding: 12, backgroundColor: '#f8d7da', borderRadius: 4 }}>{error}</div>}
+			{error && <div className="error-message">{error}</div>}
 
 			{result && (
-				<div style={{ marginTop: 16, padding: 16, backgroundColor: '#f8f9fa', borderRadius: 8, border: '1px solid #e9ecef' }}>
+				<div className="result-container">
 					<div style={{ marginBottom: 12 }}>
-						<h3 style={{ margin: '0 0 8px 0', color: '#333' }}>🏃‍♂️ 러닝 코스 추천 결과</h3>
-						<div style={{ fontSize: 16, color: '#007bff', fontWeight: 'bold', marginBottom: 12 }}>
+						<h3 className="result-title">🏃‍♂️ 러닝 코스 추천 결과</h3>
+						<div className="result-summary">
 							목표 러닝 거리: <strong>{result.total_distance_km}km</strong> | 
 							실제 총 거리: <strong>{result.actual_total_distance_km}km</strong> ({result.is_round_trip ? '왕복' : '편도'})
 						</div>
@@ -431,35 +391,29 @@ export default function App() {
 						{result.waypoints && result.waypoints.length > 0 ? (
 							<div>
 								{result.waypoints.map((waypoint, index) => (
-									<div key={waypoint.order} style={{ 
-										marginBottom: 12, 
-										padding: 12, 
-										backgroundColor: 'white', 
-										borderRadius: 4,
-										border: '1px solid #dee2e6'
-									}}>
-										<div style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
+									<div key={waypoint.order} className="waypoint-result">
+										<div className="waypoint-result-title">
 											<span style={{ color: '#666' }}>📍 경유지 {waypoint.order}:</span> 
 											<span style={{ color: '#000', marginLeft: 8 }}>{waypoint.place_name}</span>
 										</div>
-										<div style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>
+										<div className="waypoint-result-theme">
 											테마: <strong>{waypoint.theme_keyword}</strong> | 
 											거리: <strong>{waypoint.distance_km.toFixed(2)}km</strong>
 										</div>
 										{waypoint.address_name && (
-											<div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+											<div className="waypoint-result-address">
 												주소: {waypoint.address_name}
 											</div>
 										)}
 										{waypoint.phone && (
-											<div style={{ fontSize: 12, color: '#888' }}>
+											<div className="waypoint-result-phone">
 												전화: {waypoint.phone}
 											</div>
 										)}
 									</div>
 								))}
 								
-								<div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+								<div className="candidates-info">
 									검토된 장소: {result.candidates_considered}개 중 선택
 								</div>
 							</div>
@@ -473,15 +427,7 @@ export default function App() {
 						href={result.route_url} 
 						target="_blank" 
 						rel="noreferrer"
-						style={{ 
-							display: 'inline-block',
-							padding: '8px 16px',
-							backgroundColor: '#007bff',
-							color: 'white',
-							textDecoration: 'none',
-							borderRadius: 4,
-							fontSize: 14
-						}}
+						className="route-link"
 					>
 						🗺️ 걷기 길찾기 열기
 					</a>

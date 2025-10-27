@@ -1,5 +1,14 @@
+@font-face {
+  font-family: 'NanumBarunpenR';
+  src: url('./font/NanumBarunpenR.otf') format('opentype'),
+       url('./font/NanumBarunpenR.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'NanumBarunpenR', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -24,8 +33,6 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -33,6 +40,15 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  font-weight: bold;
+}
+
+h2 {
+  font-weight: bold;
+}
+
+h3 {
+  font-weight: bold;
 }
 
 button {
