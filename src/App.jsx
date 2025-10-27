@@ -5,6 +5,7 @@ const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
 
 
+
 function useKakaoLoader() {
 	const [loaded, setLoaded] = useState(false)
 	const [error, setError] = useState(null)
