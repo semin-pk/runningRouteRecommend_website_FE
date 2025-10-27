@@ -129,7 +129,7 @@ function MapPicker({ onPick }) {
 		return (
 			<div>
 				<div className="map-error">
-					<div style={{ textAlign: 'center', color: '#721c24' }}>
+					<div style={{ textAlign: 'center', color: '#000' }}>
 						<div>❌ {error}</div>
 						<div style={{ fontSize: 12, marginTop: 8 }}>카카오 지도 API 키를 확인해주세요</div>
 					</div>
@@ -142,7 +142,7 @@ function MapPicker({ onPick }) {
 		return (
 			<div>
 				<div className="map-loading">
-					<div style={{ textAlign: 'center', color: '#666' }}>
+					<div style={{ textAlign: 'center', color: '#000' }}>
 						<div>🔄 카카오 지도 로딩 중...</div>
 					</div>
 				</div>
@@ -280,6 +280,7 @@ export default function App() {
 	return (
 		<div className="app-container">
 			<header className="app-header">
+				<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
 				<h2 className="app-title">러닝 코스 랜덤 추천</h2>
 			</header>
 			<MapPicker onPick={onPick} />
@@ -393,7 +394,7 @@ export default function App() {
 								{result.waypoints.map((waypoint, index) => (
 									<div key={waypoint.order} className="waypoint-result">
 										<div className="waypoint-result-title">
-											<span style={{ color: '#666' }}>📍 경유지 {waypoint.order}:</span> 
+											<span style={{ color: '#000' }}>📍 경유지 {waypoint.order}:</span> 
 											<span style={{ color: '#000', marginLeft: 8 }}>{waypoint.place_name}</span>
 										</div>
 										<div className="waypoint-result-theme">
@@ -418,7 +419,7 @@ export default function App() {
 								</div>
 							</div>
 						) : (
-							<div style={{ color: '#666' }}>
+							<div style={{ color: '#000' }}>
 								경유지를 찾을 수 없습니다. 다른 키워드나 거리를 시도해보세요.
 							</div>
 						)}
