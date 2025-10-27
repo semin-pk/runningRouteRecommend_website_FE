@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
-//const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
-//const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
-
-const KAKAO_JS_KEY = '061ee82c589939c377c6dd83daf03cfb'
-const BACKEND_URL = 'https://zv6w3k3tt3.execute-api.ap-northeast-2.amazonaws.com/v1/'
+const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
 
 
 function useKakaoLoader() {
@@ -16,7 +13,7 @@ function useKakaoLoader() {
 		
 		if (!KAKAO_JS_KEY) {
 			console.error('KAKAO_JS_KEY is not set')
-			setError('KAKAO_JS_KEY is not set')
+			setError('카카오 지도 API 키가 설정되지 않았습니다. 환경변수를 확인해주세요.')
 			return
 		}
 
@@ -234,7 +231,13 @@ export default function App() {
 	}
 
 	const submit = async () => {
-		if (!canSubmit || !BACKEND_URL) return
+		if (!canSubmit) return
+		
+		if (!BACKEND_URL) {
+			setError('백엔드 URL이 설정되지 않았습니다. 환경변수를 확인해주세요.')
+			return
+		}
+		
 		setLoading(true)
 		setError(null)
 		setResult(null)
@@ -249,8 +252,14 @@ export default function App() {
 			
 			const r = await fetch(`${BACKEND_URL}/api/recommend`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Origin': window.location.origin
+				},
 				body: JSON.stringify(requestBody),
+				mode: 'cors',
+				credentials: 'omit'
 			})
 			if (!r.ok) throw new Error(await r.text())
 			const data = await r.json()
