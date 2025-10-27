@@ -199,6 +199,7 @@ export default function App() {
 	const handleDragStart = (e, order) => {
 		setDraggedItem(order)
 		e.dataTransfer.effectAllowed = 'move'
+		e.dataTransfer.setData('text/plain', order.toString())
 	}
 
 	const handleDragOver = (e) => {
@@ -208,10 +209,13 @@ export default function App() {
 
 	const handleDrop = (e, targetOrder) => {
 		e.preventDefault()
-		if (!draggedItem || draggedItem === targetOrder) return
+		const draggedOrder = e.dataTransfer.getData('text/plain')
+		if (!draggedOrder || draggedOrder === targetOrder.toString()) return
 
-		const draggedIndex = waypoints.findIndex(w => w.order === draggedItem)
+		const draggedIndex = waypoints.findIndex(w => w.order === parseInt(draggedOrder))
 		const targetIndex = waypoints.findIndex(w => w.order === targetOrder)
+		
+		if (draggedIndex === -1 || targetIndex === -1) return
 		
 		const newWaypoints = [...waypoints]
 		const draggedWaypoint = newWaypoints[draggedIndex]
@@ -361,7 +365,7 @@ export default function App() {
 								onClick={() => removeWaypoint(waypoint.order)}
 								className="remove-waypoint-btn"
 							>
-								×
+								−
 							</button>
 						</div>
 					))}
