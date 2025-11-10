@@ -10,7 +10,7 @@
 5. 다음 환경변수들을 추가:
 
 ```
-VITE_KAKAO_JS_KEY = 061ee82c589939c377c6dd83daf03cfb
+VITE_KAKAO_JS_KEY = e42f3fa39584e5de89f89b5052fe364b
 VITE_BACKEND_URL = https://zv6w3k3tt3.execute-api.ap-northeast-2.amazonaws.com/v1/
 ```
 
@@ -27,7 +27,7 @@ aws amplify put-backend-environment \
   --app-id YOUR_APP_ID \
   --environment-name main \
   --environment-variables '{
-    "VITE_KAKAO_JS_KEY": "061ee82c589939c377c6dd83daf03cfb",
+    "VITE_KAKAO_JS_KEY": "e42f3fa39584e5de89f89b5052fe364b",
     "VITE_BACKEND_URL": "https://zv6w3k3tt3.execute-api.ap-northeast-2.amazonaws.com/v1/"
   }'
 ```
