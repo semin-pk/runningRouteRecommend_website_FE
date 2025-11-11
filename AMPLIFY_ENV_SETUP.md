@@ -28,7 +28,7 @@ aws amplify put-backend-environment \
   --environment-name main \
   --environment-variables '{
     "VITE_KAKAO_JS_KEY": "e42f3fa39584e5de89f89b5052fe364b",
-    "VITE_BACKEND_URL": "https://zv6w3k3tt3.execute-api.ap-northeast-2.amazonaws.com/v1/"
+    "VITE_BACKEND_URL": "https://nra1xkdw2d.execute-api.ap-northeast-2.amazonaws.com/"
   }'
 ```
 
