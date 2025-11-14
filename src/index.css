@@ -11,11 +11,20 @@
   font-family: 'NanumBarunpenR', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  --color-background: #121212;
+  --color-surface: #1e1e1e;
+  --color-surface-muted: #252525;
+  --color-text: #f5f5f5;
+  --color-text-strong: #ffffff;
+  --color-text-muted: #cfcfcf;
+  --color-highlight: #fdd835;
+  --color-border: #3a3a3a;
+  --color-hover: #2f2f2f;
+  --color-link: #8ab4ff;
+  --color-link-hover: #a3c4ff;
+  --color-button: #1a1a1a;
+  --color-button-hover-border: #8ab4ff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -24,31 +33,33 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--color-link);
   text-decoration: inherit;
 }
+
 a:hover {
-  color: #535bf2;
+  color: var(--color-link-hover);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-text);
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
   font-weight: bold;
+  color: var(--color-text-strong);
 }
 
-h2 {
-  font-weight: bold;
-}
-
+h2,
 h3 {
   font-weight: bold;
+  color: var(--color-text-strong);
 }
 
 button {
@@ -58,13 +69,15 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--color-button);
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
-  border-color: #646cff;
+  border-color: var(--color-button-hover-border);
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -72,13 +85,18 @@ button:focus-visible {
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+    --color-background: #f3f4f6;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f1f5f9;
+    --color-text: #1f2933;
+    --color-text-strong: #111827;
+    --color-text-muted: #4b5563;
+    --color-highlight: #2357ff;
+    --color-border: #d1d5db;
+    --color-hover: #e2e8f0;
+    --color-link: #3b82f6;
+    --color-link-hover: #2563eb;
+    --color-button: #f3f4ff;
+    --color-button-hover-border: #2563eb;
   }
 }
