@@ -4,6 +4,13 @@ import './App.css'
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
 
+// URL 정리 함수 (끝의 슬래시 제거)
+const getBackendUrl = (path) => {
+	const baseUrl = BACKEND_URL?.replace(/\/+$/, '') || ''
+	const cleanPath = path?.replace(/^\/+/, '') || ''
+	return cleanPath ? `${baseUrl}/${cleanPath}` : baseUrl
+}
+
 
 
 function useKakaoLoader() {
@@ -161,6 +168,7 @@ function MapPicker({ onPick }) {
 }
 
 export default function App() {
+	// 기존 상태
 	const [lat, setLat] = useState(null)
 	const [lng, setLng] = useState(null)
 	const [totalDistanceKm, setTotalDistanceKm] = useState(7)
@@ -173,6 +181,16 @@ export default function App() {
 	const [loading, setLoading] = useState(false)
 	const [result, setResult] = useState(null)
 	const [error, setError] = useState(null)
+	
+	// 새로운 상태 (테마 검색 및 가게 선택)
+	const [mode, setMode] = useState('theme') // 'theme' or 'waypoint'
+	const [searchTheme, setSearchTheme] = useState('')
+	const [searchLoading, setSearchLoading] = useState(false)
+	const [storeCandidates, setStoreCandidates] = useState(null)
+	const [selectedStore, setSelectedStore] = useState(null)
+	const [confirmedStore, setConfirmedStore] = useState(null)
+	const [routeResult, setRouteResult] = useState(null)
+	const [searchError, setSearchError] = useState(null)
 
 	const canSubmit = lat !== null && lng !== null && totalDistanceKm > 0 && waypoints.length > 0
 
@@ -255,7 +273,7 @@ export default function App() {
 				is_round_trip: isRoundTrip
 			}
 			
-			const r = await fetch(`${BACKEND_URL}/api/recommend`, {
+			const r = await fetch(getBackendUrl('api/recommend'), {
 				method: 'POST',
 				headers: { 
 					'Content-Type': 'application/json',
@@ -280,6 +298,160 @@ export default function App() {
 			setLoading(false)
 		}
 	}
+	
+	// 테마 검색 함수
+	const searchStoresByTheme = async () => {
+		if (!lat || !lng || !searchTheme.trim()) {
+			setSearchError('위치와 테마를 모두 입력해주세요.')
+			return
+		}
+		
+		if (!BACKEND_URL) {
+			setSearchError('백엔드 URL이 설정되지 않았습니다.')
+			return
+		}
+		
+		setSearchLoading(true)
+		setSearchError(null)
+		setStoreCandidates(null)
+		setSelectedStore(null)
+		setConfirmedStore(null)
+		setRouteResult(null)
+		
+		try {
+			const requestBody = {
+				theme: searchTheme.trim(),
+				latitude: lat,
+				longitude: lng,
+				radius_m: 2000
+			}
+			
+			const r = await fetch(getBackendUrl('api/stores/search'), {
+				method: 'POST',
+				headers: { 
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Origin': window.location.origin
+				},
+				body: JSON.stringify(requestBody),
+				mode: 'cors',
+				credentials: 'omit'
+			})
+			
+			if (!r.ok) {
+				const errorText = await r.text()
+				throw new Error(errorText)
+			}
+			
+			const data = await r.json()
+			setStoreCandidates(data.stores || [])
+		} catch (e) {
+			const errorText = await e.text ? await e.text() : String(e)
+			setSearchError(errorText)
+		} finally {
+			setSearchLoading(false)
+		}
+	}
+	
+	// 가게 확정 함수
+	const confirmStore = async () => {
+		if (!selectedStore || !lat || !lng) {
+			setSearchError('가게와 위치를 선택해주세요.')
+			return
+		}
+		
+		if (!BACKEND_URL) {
+			setSearchError('백엔드 URL이 설정되지 않았습니다.')
+			return
+		}
+		
+		setSearchLoading(true)
+		setSearchError(null)
+		
+		try {
+			const requestBody = {
+				store_id: selectedStore.store_id,
+				start_lat: lat,
+				start_lng: lng,
+				total_distance_km: totalDistanceKm,
+				is_round_trip: isRoundTrip
+			}
+			
+			const r = await fetch(getBackendUrl('api/stores/confirm'), {
+				method: 'POST',
+				headers: { 
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Origin': window.location.origin
+				},
+				body: JSON.stringify(requestBody),
+				mode: 'cors',
+				credentials: 'omit'
+			})
+			
+			if (!r.ok) {
+				const errorText = await r.text()
+				throw new Error(errorText)
+			}
+			
+			const data = await r.json()
+			setConfirmedStore(selectedStore)
+			setRouteResult(data)
+		} catch (e) {
+			const errorText = await e.text ? await e.text() : String(e)
+			setSearchError(errorText)
+		} finally {
+			setSearchLoading(false)
+		}
+	}
+	
+	// 리뷰 요약 상태 확인 (폴링)
+	useEffect(() => {
+		if (!storeCandidates || storeCandidates.length === 0) return
+		
+		const processingStores = storeCandidates.filter(s => s.summary_status === 'processing')
+		if (processingStores.length === 0) return
+		
+		const checkReviews = async () => {
+			try {
+				const promises = processingStores.map(store => 
+					fetch(getBackendUrl(`api/stores/${store.store_id}`), {
+						method: 'GET',
+						headers: { 
+							'Accept': 'application/json',
+							'Origin': window.location.origin
+						},
+						mode: 'cors',
+						credentials: 'omit'
+					}).then(r => r.ok ? r.json() : null)
+				)
+				
+				const results = await Promise.all(promises)
+				const updatedStores = storeCandidates.map(store => {
+					const result = results.find(r => r && r.store_id === store.store_id)
+					if (result && result.review_summary) {
+						return {
+							...store,
+							summary_status: 'ready',
+							review_summary: result.review_summary
+						}
+					}
+					return store
+				})
+				
+				if (updatedStores.some(s => s.summary_status === 'ready' && 
+					storeCandidates.find(orig => orig.store_id === s.store_id)?.summary_status === 'processing')) {
+					setStoreCandidates(updatedStores)
+				}
+			} catch (e) {
+				console.error('Failed to check reviews:', e)
+			}
+		}
+		
+		const interval = setInterval(checkReviews, 3000) // 3초마다 확인
+		return () => clearInterval(interval)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [storeCandidates])
 
 	return (
 		<div className="app-container">
@@ -289,6 +461,223 @@ export default function App() {
 			</header>
 			<MapPicker onPick={onPick} />
 			
+			{/* 모드 선택 탭 */}
+			<div className="mode-selector" style={{ margin: '20px 0', textAlign: 'center' }}>
+				<button
+					onClick={() => setMode('theme')}
+					style={{
+						padding: '10px 20px',
+						margin: '0 10px',
+						backgroundColor: mode === 'theme' ? '#4CAF50' : '#f0f0f0',
+						color: mode === 'theme' ? 'white' : '#333',
+						border: 'none',
+						borderRadius: '5px',
+						cursor: 'pointer',
+						fontSize: '16px'
+					}}
+				>
+					테마 검색
+				</button>
+				<button
+					onClick={() => setMode('waypoint')}
+					style={{
+						padding: '10px 20px',
+						margin: '0 10px',
+						backgroundColor: mode === 'waypoint' ? '#4CAF50' : '#f0f0f0',
+						color: mode === 'waypoint' ? 'white' : '#333',
+						border: 'none',
+						borderRadius: '5px',
+						cursor: 'pointer',
+						fontSize: '16px'
+					}}
+				>
+					경유지 설정
+				</button>
+			</div>
+			
+			{/* 테마 검색 모드 */}
+			{mode === 'theme' && (
+				<div className="form-container">
+					<div className="input-grid">
+						<div className="input-group">
+							<label>총 러닝 거리 (km)</label>
+							<input 
+								type="number" 
+								value={totalDistanceKm} 
+								min={1} 
+								step={0.5} 
+								onChange={(e) => setTotalDistanceKm(Number(e.target.value))} 
+							/>
+						</div>
+						<div className="input-group">
+							<label>왕복/편도</label>
+							<div className="radio-group">
+								<label className="radio-option">
+									<input 
+										type="radio" 
+										checked={isRoundTrip} 
+										onChange={() => setIsRoundTrip(true)}
+									/>
+									왕복
+								</label>
+								<label className="radio-option">
+									<input 
+										type="radio" 
+										checked={!isRoundTrip} 
+										onChange={() => setIsRoundTrip(false)}
+									/>
+									편도
+								</label>
+							</div>
+						</div>
+					</div>
+					
+					<div className="input-group" style={{ marginTop: '20px' }}>
+						<label>테마 검색어</label>
+						<div style={{ display: 'flex', gap: '10px' }}>
+							<input 
+								type="text" 
+								value={searchTheme}
+								onChange={(e) => setSearchTheme(e.target.value)}
+								placeholder="예: 카페, 맛집, 맥주 등"
+								style={{ flex: 1, padding: '10px' }}
+								onKeyPress={(e) => e.key === 'Enter' && searchStoresByTheme()}
+							/>
+							<button
+								onClick={searchStoresByTheme}
+								disabled={!lat || !lng || !searchTheme.trim() || searchLoading}
+								style={{
+									padding: '10px 20px',
+									backgroundColor: '#4CAF50',
+									color: 'white',
+									border: 'none',
+									borderRadius: '5px',
+									cursor: 'pointer'
+								}}
+							>
+								{searchLoading ? '검색중...' : '검색'}
+							</button>
+						</div>
+					</div>
+					
+					{searchError && <div className="error-message">{searchError}</div>}
+					
+					{/* 가게 후보 목록 */}
+					{storeCandidates && storeCandidates.length > 0 && (
+						<div className="store-candidates" style={{ marginTop: '20px' }}>
+							<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 가게 (3개)</h3>
+							{storeCandidates.map((store, index) => (
+								<div
+									key={store.store_id}
+									onClick={() => setSelectedStore(store)}
+									style={{
+										border: selectedStore?.store_id === store.store_id ? '3px solid #4CAF50' : '1px solid #ddd',
+										borderRadius: '8px',
+										padding: '15px',
+										marginBottom: '15px',
+										cursor: 'pointer',
+										backgroundColor: selectedStore?.store_id === store.store_id ? '#f0f9f0' : 'white',
+										transition: 'all 0.2s'
+									}}
+								>
+									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px', color: '#333' }}>
+										{index + 1}. {store.name}
+									</div>
+									<div style={{ color: '#666', marginBottom: '5px' }}>
+										📍 {store.address}
+									</div>
+									{store.phone && (
+										<div style={{ color: '#666', marginBottom: '5px' }}>
+											📞 {store.phone}
+										</div>
+									)}
+									<div style={{ marginTop: '10px' }}>
+										{store.summary_status === 'processing' ? (
+											<div style={{ color: '#ff9800', fontSize: '14px' }}>
+												⏳ AI가 장소를 찾고 있어요. 잠시만 기다려주세요.
+											</div>
+										) : store.review_summary ? (
+											<div style={{ fontSize: '14px' }}>
+												<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+													✓ 리뷰 요약 완료
+												</div>
+												{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
+													<div style={{ color: '#666', marginBottom: '3px' }}>
+														메뉴: {store.review_summary.main_menu.join(', ')}
+													</div>
+												)}
+												{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
+													<div style={{ color: '#666', marginBottom: '3px' }}>
+														분위기: {store.review_summary.atmosphere.join(', ')}
+													</div>
+												)}
+												{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
+													<div style={{ color: '#666' }}>
+														추천: {store.review_summary.recommended_for.join(', ')}
+													</div>
+												)}
+											</div>
+										) : null}
+									</div>
+								</div>
+							))}
+							
+							{selectedStore && (
+								<div style={{ marginTop: '20px', textAlign: 'center' }}>
+									<button
+										onClick={confirmStore}
+										disabled={searchLoading}
+										style={{
+											padding: '12px 30px',
+											backgroundColor: '#2196F3',
+											color: 'white',
+											border: 'none',
+											borderRadius: '5px',
+											cursor: 'pointer',
+											fontSize: '16px',
+											fontWeight: 'bold'
+										}}
+									>
+										{searchLoading ? '확정 중...' : '확정'}
+									</button>
+								</div>
+							)}
+						</div>
+					)}
+					
+					{/* 경로 결과 */}
+					{confirmedStore && routeResult && (
+						<div className="result-container" style={{ marginTop: '20px' }}>
+							<h3 className="result-title">✅ 경로 확정 완료</h3>
+							<div className="result-summary">
+								목표 러닝 거리: <strong>{routeResult.total_distance_km}km</strong> | 
+								실제 총 거리: <strong>{routeResult.actual_total_distance_km}km</strong> ({routeResult.is_round_trip ? '왕복' : '편도'})
+							</div>
+							<a 
+								href={routeResult.route_url} 
+								target="_blank" 
+								rel="noreferrer"
+								className="route-link"
+								style={{
+									display: 'inline-block',
+									marginTop: '15px',
+									padding: '12px 30px',
+									backgroundColor: '#4CAF50',
+									color: 'white',
+									textDecoration: 'none',
+									borderRadius: '5px',
+									fontWeight: 'bold'
+								}}
+							>
+								🗺️ 경로 확인하기
+							</a>
+						</div>
+					)}
+				</div>
+			)}
+			
+			{/* 경유지 설정 모드 (기존) */}
+			{mode === 'waypoint' && (
 			<div className="form-container">
 				<div className="input-grid">
 					<div className="input-group">
@@ -381,6 +770,7 @@ export default function App() {
 					</button>
 				</div>
 			</div>
+			)}
 
 			{error && <div className="error-message">{error}</div>}
 
