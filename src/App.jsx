@@ -182,15 +182,18 @@ export default function App() {
 	const [result, setResult] = useState(null)
 	const [error, setError] = useState(null)
 	
-	// 새로운 상태 (테마 검색 및 가게 선택)
-	const [mode, setMode] = useState('theme') // 'theme' or 'waypoint'
-	const [searchTheme, setSearchTheme] = useState('')
+	// 새로운 상태 (상세 검색 및 빠른 검색)
+	const [mode, setMode] = useState('quick') // 'quick' (빠른 검색) or 'detail' (상세 검색)
+	const [searchThemes, setSearchThemes] = useState(['']) // 여러 테마 입력 (상세 검색용)
 	const [searchLoading, setSearchLoading] = useState(false)
 	const [storeCandidates, setStoreCandidates] = useState(null)
+	const [routeCandidates, setRouteCandidates] = useState(null) // 경로 후보 (경유지 2개 이상일 때)
 	const [selectedStore, setSelectedStore] = useState(null)
+	const [selectedRoute, setSelectedRoute] = useState(null)
 	const [confirmedStore, setConfirmedStore] = useState(null)
 	const [routeResult, setRouteResult] = useState(null)
 	const [searchError, setSearchError] = useState(null)
+	const [searchType, setSearchType] = useState(null) // 'single' or 'route'
 
 	const canSubmit = lat !== null && lng !== null && totalDistanceKm > 0 && waypoints.length > 0
 
@@ -299,9 +302,10 @@ export default function App() {
 		}
 	}
 	
-	// 테마 검색 함수
+	// 상세 검색 함수 (여러 테마 지원)
 	const searchStoresByTheme = async () => {
-		if (!lat || !lng || !searchTheme.trim()) {
+		const validThemes = searchThemes.filter(t => t.trim().length > 0)
+		if (!lat || !lng || validThemes.length === 0) {
 			setSearchError('위치와 테마를 모두 입력해주세요.')
 			return
 		}
@@ -314,16 +318,23 @@ export default function App() {
 		setSearchLoading(true)
 		setSearchError(null)
 		setStoreCandidates(null)
+		setRouteCandidates(null)
 		setSelectedStore(null)
+		setSelectedRoute(null)
 		setConfirmedStore(null)
 		setRouteResult(null)
+		setSearchType(null)
 		
 		try {
 			const requestBody = {
-				theme: searchTheme.trim(),
+				themes: validThemes.map(t => t.trim()),
 				latitude: lat,
 				longitude: lng,
-				radius_m: 2000
+				radius_m: 2000,
+				start_lat: lat,
+				start_lng: lng,
+				total_distance_km: totalDistanceKm,
+				is_round_trip: isRoundTrip
 			}
 			
 			const r = await fetch(getBackendUrl('api/stores/search'), {
@@ -344,7 +355,24 @@ export default function App() {
 			}
 			
 			const data = await r.json()
-			setStoreCandidates(data.stores || [])
+			console.log('[상세 검색] 응답 데이터:', data)
+			console.log('[상세 검색] search_type:', data.search_type)
+			console.log('[상세 검색] stores:', data.stores)
+			console.log('[상세 검색] routes:', data.routes)
+			
+			setSearchType(data.search_type)
+			
+			if (data.search_type === 'single') {
+				// 경유지 1개: 가게 선택
+				console.log('[상세 검색] 단일 테마 모드, 가게 개수:', data.stores?.length || 0)
+				setStoreCandidates(data.stores || [])
+			} else if (data.search_type === 'route') {
+				// 경유지 2개 이상: 경로 선택
+				console.log('[상세 검색] 경로 모드, 경로 개수:', data.routes?.length || 0)
+				setRouteCandidates(data.routes || [])
+			} else {
+				console.warn('[상세 검색] 알 수 없는 search_type:', data.search_type)
+			}
 		} catch (e) {
 			const errorText = await e.text ? await e.text() : String(e)
 			setSearchError(errorText)
@@ -353,7 +381,7 @@ export default function App() {
 		}
 	}
 	
-	// 가게 확정 함수
+	// 가게 확정 함수 (단일 테마일 때)
 	const confirmStore = async () => {
 		if (!selectedStore || !lat || !lng) {
 			setSearchError('가게와 위치를 선택해주세요.')
@@ -405,7 +433,76 @@ export default function App() {
 		}
 	}
 	
-	// 리뷰 요약 상태 확인 (폴링)
+	// 경로 확정 함수 (경유지 2개 이상일 때)
+	const confirmRoute = async () => {
+		if (!selectedRoute || !lat || !lng) {
+			setSearchError('경로와 위치를 선택해주세요.')
+			return
+		}
+		
+		if (!BACKEND_URL) {
+			setSearchError('백엔드 URL이 설정되지 않았습니다.')
+			return
+		}
+		
+		setSearchLoading(true)
+		setSearchError(null)
+		
+		try {
+			const storeIds = selectedRoute.stores.map(s => s.store_id)
+			const requestBody = {
+				store_ids: storeIds,
+				start_lat: lat,
+				start_lng: lng,
+				total_distance_km: totalDistanceKm,
+				is_round_trip: isRoundTrip
+			}
+			
+			const r = await fetch(getBackendUrl('api/routes/confirm'), {
+				method: 'POST',
+				headers: { 
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Origin': window.location.origin
+				},
+				body: JSON.stringify(requestBody),
+				mode: 'cors',
+				credentials: 'omit'
+			})
+			
+			if (!r.ok) {
+				const errorText = await r.text()
+				throw new Error(errorText)
+			}
+			
+			const data = await r.json()
+			setRouteResult(data)
+		} catch (e) {
+			const errorText = await e.text ? await e.text() : String(e)
+			setSearchError(errorText)
+		} finally {
+			setSearchLoading(false)
+		}
+	}
+	
+	// 테마 입력 추가/제거 함수
+	const addTheme = () => {
+		setSearchThemes([...searchThemes, ''])
+	}
+	
+	const removeTheme = (index) => {
+		if (searchThemes.length > 1) {
+			setSearchThemes(searchThemes.filter((_, i) => i !== index))
+		}
+	}
+	
+	const updateTheme = (index, value) => {
+		const newThemes = [...searchThemes]
+		newThemes[index] = value
+		setSearchThemes(newThemes)
+	}
+	
+	// 리뷰 요약 상태 확인 (폴링) - 가게 후보용
 	useEffect(() => {
 		if (!storeCandidates || storeCandidates.length === 0) return
 		
@@ -452,6 +549,56 @@ export default function App() {
 		return () => clearInterval(interval)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [storeCandidates])
+	
+	// 리뷰 요약 상태 확인 (폴링) - 경로 후보용
+	useEffect(() => {
+		if (!routeCandidates || routeCandidates.length === 0) return
+		
+		// 모든 경로의 모든 가게에서 processing 상태인 것 찾기
+		const allStores = routeCandidates.flatMap(route => route.stores || [])
+		const processingStores = allStores.filter(s => s.summary_status === 'processing')
+		if (processingStores.length === 0) return
+		
+		const checkReviews = async () => {
+			try {
+				const promises = processingStores.map(store => 
+					fetch(getBackendUrl(`api/stores/${store.store_id}`), {
+						method: 'GET',
+						headers: { 
+							'Accept': 'application/json',
+							'Origin': window.location.origin
+						},
+						mode: 'cors',
+						credentials: 'omit'
+					}).then(r => r.ok ? r.json() : null)
+				)
+				
+				const results = await Promise.all(promises)
+				const updatedRoutes = routeCandidates.map(route => ({
+					...route,
+					stores: route.stores.map(store => {
+						const result = results.find(r => r && r.store_id === store.store_id)
+						if (result && result.review_summary) {
+							return {
+								...store,
+								summary_status: 'ready',
+								review_summary: result.review_summary
+							}
+						}
+						return store
+					})
+				}))
+				
+				setRouteCandidates(updatedRoutes)
+			} catch (e) {
+				console.error('Failed to check reviews:', e)
+			}
+		}
+		
+		const interval = setInterval(checkReviews, 3000) // 3초마다 확인
+		return () => clearInterval(interval)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [routeCandidates])
 
 	return (
 		<div className="app-container">
@@ -464,39 +611,149 @@ export default function App() {
 			{/* 모드 선택 탭 */}
 			<div className="mode-selector" style={{ margin: '20px 0', textAlign: 'center' }}>
 				<button
-					onClick={() => setMode('theme')}
+					onClick={() => {
+						setMode('quick')
+						setStoreCandidates(null)
+						setRouteCandidates(null)
+						setSelectedStore(null)
+						setSelectedRoute(null)
+						setRouteResult(null)
+					}}
 					style={{
 						padding: '10px 20px',
 						margin: '0 10px',
-						backgroundColor: mode === 'theme' ? '#4CAF50' : '#f0f0f0',
-						color: mode === 'theme' ? 'white' : '#333',
+						backgroundColor: mode === 'quick' ? '#4CAF50' : '#f0f0f0',
+						color: mode === 'quick' ? 'white' : '#333',
 						border: 'none',
 						borderRadius: '5px',
 						cursor: 'pointer',
 						fontSize: '16px'
 					}}
 				>
-					테마 검색
+					빠른 검색
 				</button>
 				<button
-					onClick={() => setMode('waypoint')}
+					onClick={() => {
+						setMode('detail')
+						setStoreCandidates(null)
+						setRouteCandidates(null)
+						setSelectedStore(null)
+						setSelectedRoute(null)
+						setRouteResult(null)
+					}}
 					style={{
 						padding: '10px 20px',
 						margin: '0 10px',
-						backgroundColor: mode === 'waypoint' ? '#4CAF50' : '#f0f0f0',
-						color: mode === 'waypoint' ? 'white' : '#333',
+						backgroundColor: mode === 'detail' ? '#4CAF50' : '#f0f0f0',
+						color: mode === 'detail' ? 'white' : '#333',
 						border: 'none',
 						borderRadius: '5px',
 						cursor: 'pointer',
 						fontSize: '16px'
 					}}
 				>
-					경유지 설정
+					상세 검색
 				</button>
 			</div>
 			
-			{/* 테마 검색 모드 */}
-			{mode === 'theme' && (
+			{/* 빠른 검색 모드 */}
+			{mode === 'quick' && (
+				<div className="form-container">
+					<div className="input-grid">
+						<div className="input-group">
+							<label>총 러닝 거리 (km)</label>
+							<input 
+								type="number" 
+								value={totalDistanceKm} 
+								min={1} 
+								step={0.5} 
+								onChange={(e) => setTotalDistanceKm(Number(e.target.value))} 
+							/>
+						</div>
+						<div className="input-group">
+							<label>왕복/편도</label>
+							<div className="radio-group">
+								<label className="radio-option">
+									<input 
+										type="radio" 
+										checked={isRoundTrip} 
+										onChange={() => setIsRoundTrip(true)}
+									/>
+									왕복
+								</label>
+								<label className="radio-option">
+									<input 
+										type="radio" 
+										checked={!isRoundTrip} 
+										onChange={() => setIsRoundTrip(false)}
+									/>
+									편도
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<div className="waypoints-section">
+						<div className="waypoints-header">
+							<div>
+								<label className="waypoints-title">경유지 설정</label>
+								<div className="waypoints-subtitle">
+									드래그하여 순서를 변경할 수 있습니다
+								</div>
+							</div>
+							<button 
+								onClick={addWaypoint}
+								className="add-waypoint-btn"
+							>
+								+ 경유지 추가
+							</button>
+						</div>
+						
+						{waypoints.map((waypoint, index) => (
+							<div 
+								key={waypoint.order} 
+								draggable
+								onDragStart={(e) => handleDragStart(e, waypoint.order)}
+								onDragOver={handleDragOver}
+								onDrop={(e) => handleDrop(e, waypoint.order)}
+								onDragEnd={handleDragEnd}
+								className={`waypoint-item ${draggedItem === waypoint.order ? 'dragging' : ''}`}
+							>
+								<span className="waypoint-order">
+									<span className="drag-handle">⋮⋮</span>
+									{waypoint.order}
+								</span>
+								<input 
+									value={waypoint.theme_keyword}
+									onChange={(e) => updateWaypoint(waypoint.order, e.target.value)}
+									placeholder="경유지 키워드 (예: 카페, 맛집, 맥주)"
+									className="waypoint-input"
+									onMouseDown={(e) => e.stopPropagation()}
+								/>
+								<button 
+									onClick={() => removeWaypoint(waypoint.order)}
+									className="remove-waypoint-btn"
+								>
+									−
+								</button>
+							</div>
+						))}
+					</div>
+
+					<div className="submit-container">
+						<button 
+							disabled={!canSubmit || loading} 
+							onClick={submit} 
+							className="submit-btn"
+						>
+							{loading ? '추천중...' : '러닝 코스 추천 받기'}
+						</button>
+					</div>
+				</div>
+			)}
+			
+			{/* 상세 검색 모드 */}
+			{mode === 'detail' && (
 				<div className="form-container">
 					<div className="input-grid">
 						<div className="input-group">
@@ -533,40 +790,76 @@ export default function App() {
 					</div>
 					
 					<div className="input-group" style={{ marginTop: '20px' }}>
-						<label>테마 검색어</label>
-						<div style={{ display: 'flex', gap: '10px' }}>
-							<input 
-								type="text" 
-								value={searchTheme}
-								onChange={(e) => setSearchTheme(e.target.value)}
-								placeholder="예: 카페, 맛집, 맥주 등"
-								style={{ flex: 1, padding: '10px' }}
-								onKeyPress={(e) => e.key === 'Enter' && searchStoresByTheme()}
-							/>
+						<label>테마 검색어 (경유지별)</label>
+						<div style={{ marginBottom: '10px' }}>
+							{searchThemes.map((theme, index) => (
+								<div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+									<input 
+										type="text" 
+										value={theme}
+										onChange={(e) => updateTheme(index, e.target.value)}
+										placeholder={`경유지 ${index + 1} 테마 (예: 카페, 맛집, 맥주 등)`}
+										style={{ flex: 1, padding: '10px' }}
+										onKeyPress={(e) => e.key === 'Enter' && searchStoresByTheme()}
+									/>
+									{searchThemes.length > 1 && (
+										<button
+											onClick={() => removeTheme(index)}
+											style={{
+												padding: '10px 15px',
+												backgroundColor: '#f44336',
+												color: 'white',
+												border: 'none',
+												borderRadius: '5px',
+												cursor: 'pointer'
+											}}
+										>
+											삭제
+										</button>
+									)}
+								</div>
+							))}
 							<button
-								onClick={searchStoresByTheme}
-								disabled={!lat || !lng || !searchTheme.trim() || searchLoading}
+								onClick={addTheme}
 								style={{
-									padding: '10px 20px',
-									backgroundColor: '#4CAF50',
+									padding: '8px 15px',
+									backgroundColor: '#2196F3',
 									color: 'white',
 									border: 'none',
 									borderRadius: '5px',
-									cursor: 'pointer'
+									cursor: 'pointer',
+									marginTop: '5px'
 								}}
 							>
-								{searchLoading ? '검색중...' : '검색'}
+								+ 테마 추가
 							</button>
 						</div>
+						<button
+							onClick={searchStoresByTheme}
+							disabled={!lat || !lng || searchThemes.every(t => !t.trim()) || searchLoading}
+							style={{
+								padding: '10px 20px',
+								backgroundColor: '#4CAF50',
+								color: 'white',
+								border: 'none',
+								borderRadius: '5px',
+								cursor: 'pointer',
+								width: '100%'
+							}}
+						>
+							{searchLoading ? '검색중...' : '검색'}
+						</button>
 					</div>
 					
 					{searchError && <div className="error-message">{searchError}</div>}
 					
-					{/* 가게 후보 목록 */}
-					{storeCandidates && storeCandidates.length > 0 && (
+					{/* 가게 후보 목록 (경유지 1개일 때) */}
+					{searchType === 'single' && storeCandidates !== null && (
 						<div className="store-candidates" style={{ marginTop: '20px' }}>
-							<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 가게 (3개)</h3>
-							{storeCandidates.map((store, index) => (
+							{storeCandidates.length > 0 ? (
+								<>
+									<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 가게 (3개)</h3>
+									{storeCandidates.map((store, index) => (
 								<div
 									key={store.store_id}
 									onClick={() => setSelectedStore(store)}
@@ -620,39 +913,149 @@ export default function App() {
 										) : null}
 									</div>
 								</div>
+									))}
+									
+									{selectedStore && (
+										<div style={{ marginTop: '20px', textAlign: 'center' }}>
+											<button
+												onClick={confirmStore}
+												disabled={searchLoading}
+												style={{
+													padding: '12px 30px',
+													backgroundColor: '#2196F3',
+													color: 'white',
+													border: 'none',
+													borderRadius: '5px',
+													cursor: 'pointer',
+													fontSize: '16px',
+													fontWeight: 'bold'
+												}}
+											>
+												{searchLoading ? '확정 중...' : '확정'}
+											</button>
+										</div>
+									)}
+								</>
+							) : (
+								<div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+									검색 결과가 없습니다. 다른 테마나 위치로 검색해보세요.
+								</div>
+							)}
+						</div>
+					)}
+					
+					{/* 경로 후보 목록 (경유지 2개 이상일 때) */}
+					{searchType === 'route' && routeCandidates !== null && (
+						<div className="route-candidates" style={{ marginTop: '20px' }}>
+							{routeCandidates.length > 0 ? (
+								<>
+									<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 경로 (최대 3개)</h3>
+									{routeCandidates.map((route, routeIndex) => (
+								<div
+									key={route.route_id}
+									onClick={() => setSelectedRoute(route)}
+									style={{
+										border: selectedRoute?.route_id === route.route_id ? '3px solid #4CAF50' : '1px solid #ddd',
+										borderRadius: '8px',
+										padding: '15px',
+										marginBottom: '15px',
+										cursor: 'pointer',
+										backgroundColor: selectedRoute?.route_id === route.route_id ? '#f0f9f0' : 'white',
+										transition: 'all 0.2s'
+									}}
+								>
+									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '10px', color: '#333' }}>
+										경로 {routeIndex + 1} (총 거리: {route.total_distance_km}km)
+									</div>
+									{route.stores && route.stores.map((store, storeIndex) => (
+										<div key={store.store_id} style={{ marginBottom: '10px', paddingLeft: '15px', borderLeft: '3px solid #4CAF50' }}>
+											<div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '5px', color: '#333' }}>
+												{storeIndex + 1}. {store.name}
+											</div>
+											<div style={{ color: '#666', marginBottom: '3px' }}>
+												📍 {store.address}
+											</div>
+											{store.summary_status === 'processing' ? (
+												<div style={{ color: '#ff9800', fontSize: '14px', marginTop: '5px' }}>
+													⏳ AI가 장소를 찾고 있어요. 잠시만 기다려주세요.
+												</div>
+											) : store.review_summary ? (
+												<div style={{ fontSize: '13px', color: '#888', marginTop: '5px' }}>
+													{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
+														<div>메뉴: {store.review_summary.main_menu.join(', ')}</div>
+													)}
+													{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
+														<div>분위기: {store.review_summary.atmosphere.join(', ')}</div>
+													)}
+													{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
+														<div>추천: {store.review_summary.recommended_for.join(', ')}</div>
+													)}
+												</div>
+											) : null}
+										</div>
+									))}
+								</div>
 							))}
 							
-							{selectedStore && (
-								<div style={{ marginTop: '20px', textAlign: 'center' }}>
-									<button
-										onClick={confirmStore}
-										disabled={searchLoading}
-										style={{
-											padding: '12px 30px',
-											backgroundColor: '#2196F3',
-											color: 'white',
-											border: 'none',
-											borderRadius: '5px',
-											cursor: 'pointer',
-											fontSize: '16px',
-											fontWeight: 'bold'
-										}}
-									>
-										{searchLoading ? '확정 중...' : '확정'}
-									</button>
+									{selectedRoute && (
+										<div style={{ marginTop: '20px', textAlign: 'center' }}>
+											<button
+												onClick={confirmRoute}
+												disabled={searchLoading}
+												style={{
+													padding: '12px 30px',
+													backgroundColor: '#2196F3',
+													color: 'white',
+													border: 'none',
+													borderRadius: '5px',
+													cursor: 'pointer',
+													fontSize: '16px',
+													fontWeight: 'bold'
+												}}
+											>
+												{searchLoading ? '확정 중...' : '경로 확정'}
+											</button>
+										</div>
+									)}
+								</>
+							) : (
+								<div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+									검색 결과가 없습니다. 다른 테마나 위치로 검색해보세요.
 								</div>
 							)}
 						</div>
 					)}
 					
 					{/* 경로 결과 */}
-					{confirmedStore && routeResult && (
+					{routeResult && (
 						<div className="result-container" style={{ marginTop: '20px' }}>
 							<h3 className="result-title">✅ 경로 확정 완료</h3>
 							<div className="result-summary">
 								목표 러닝 거리: <strong>{routeResult.total_distance_km}km</strong> | 
 								실제 총 거리: <strong>{routeResult.actual_total_distance_km}km</strong> ({routeResult.is_round_trip ? '왕복' : '편도'})
 							</div>
+							{routeResult.waypoints && routeResult.waypoints.length > 0 && (
+								<div style={{ marginTop: '15px' }}>
+									{routeResult.waypoints.map((waypoint, index) => (
+										<div key={waypoint.order} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
+											<div style={{ fontWeight: 'bold' }}>{index + 1}. {waypoint.place_name}</div>
+											{waypoint.review_summary && (
+												<div style={{ fontSize: '13px', color: '#666', marginTop: '5px' }}>
+													{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
+														<div>메뉴: {waypoint.review_summary.main_menu.join(', ')}</div>
+													)}
+													{waypoint.review_summary.atmosphere && waypoint.review_summary.atmosphere.length > 0 && (
+														<div>분위기: {waypoint.review_summary.atmosphere.join(', ')}</div>
+													)}
+													{waypoint.review_summary.recommended_for && waypoint.review_summary.recommended_for.length > 0 && (
+														<div>추천: {waypoint.review_summary.recommended_for.join(', ')}</div>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+							)}
 							<a 
 								href={routeResult.route_url} 
 								target="_blank" 
@@ -675,106 +1078,11 @@ export default function App() {
 					)}
 				</div>
 			)}
-			
-			{/* 경유지 설정 모드 (기존) */}
-			{mode === 'waypoint' && (
-			<div className="form-container">
-				<div className="input-grid">
-					<div className="input-group">
-						<label>총 러닝 거리 (km)</label>
-						<input 
-							type="number" 
-							value={totalDistanceKm} 
-							min={1} 
-							step={0.5} 
-							onChange={(e) => setTotalDistanceKm(Number(e.target.value))} 
-						/>
-					</div>
-					<div className="input-group">
-						<label>왕복/편도</label>
-						<div className="radio-group">
-							<label className="radio-option">
-								<input 
-									type="radio" 
-									checked={isRoundTrip} 
-									onChange={() => setIsRoundTrip(true)}
-								/>
-								왕복
-							</label>
-							<label className="radio-option">
-								<input 
-									type="radio" 
-									checked={!isRoundTrip} 
-									onChange={() => setIsRoundTrip(false)}
-								/>
-								편도
-							</label>
-						</div>
-					</div>
-				</div>
-
-				<div className="waypoints-section">
-					<div className="waypoints-header">
-						<div>
-							<label className="waypoints-title">경유지 설정</label>
-							<div className="waypoints-subtitle">
-								드래그하여 순서를 변경할 수 있습니다
-							</div>
-						</div>
-						<button 
-							onClick={addWaypoint}
-							className="add-waypoint-btn"
-						>
-							+ 경유지 추가
-						</button>
-					</div>
-					
-					{waypoints.map((waypoint, index) => (
-						<div 
-							key={waypoint.order} 
-							draggable
-							onDragStart={(e) => handleDragStart(e, waypoint.order)}
-							onDragOver={handleDragOver}
-							onDrop={(e) => handleDrop(e, waypoint.order)}
-							onDragEnd={handleDragEnd}
-							className={`waypoint-item ${draggedItem === waypoint.order ? 'dragging' : ''}`}
-						>
-							<span className="waypoint-order">
-								<span className="drag-handle">⋮⋮</span>
-								{waypoint.order}
-							</span>
-							<input 
-								value={waypoint.theme_keyword}
-								onChange={(e) => updateWaypoint(waypoint.order, e.target.value)}
-								placeholder="경유지 키워드 (예: 카페, 맛집, 맥주)"
-								className="waypoint-input"
-								onMouseDown={(e) => e.stopPropagation()}
-							/>
-							<button 
-								onClick={() => removeWaypoint(waypoint.order)}
-								className="remove-waypoint-btn"
-							>
-								−
-							</button>
-						</div>
-					))}
-				</div>
-
-				<div className="submit-container">
-					<button 
-						disabled={!canSubmit || loading} 
-						onClick={submit} 
-						className="submit-btn"
-					>
-						{loading ? '추천중...' : '러닝 코스 추천 받기'}
-					</button>
-				</div>
-			</div>
-			)}
 
 			{error && <div className="error-message">{error}</div>}
 
-			{result && (
+			{/* 빠른 검색 결과 */}
+			{mode === 'quick' && result && (
 				<div className="result-container">
 					<div style={{ marginBottom: 12 }}>
 						<h3 className="result-title">🏃‍♂️ 러닝 코스 추천 결과</h3>
@@ -803,6 +1111,25 @@ export default function App() {
 										{waypoint.phone && (
 											<div className="waypoint-result-phone">
 												전화: {waypoint.phone}
+											</div>
+										)}
+										{waypoint.review_summary && (
+											<div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f9f0', borderRadius: '5px' }}>
+												{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
+													<div style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
+														메뉴: {waypoint.review_summary.main_menu.join(', ')}
+													</div>
+												)}
+												{waypoint.review_summary.atmosphere && waypoint.review_summary.atmosphere.length > 0 && (
+													<div style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
+														분위기: {waypoint.review_summary.atmosphere.join(', ')}
+													</div>
+												)}
+												{waypoint.review_summary.recommended_for && waypoint.review_summary.recommended_for.length > 0 && (
+													<div style={{ fontSize: '14px', color: '#666' }}>
+														추천: {waypoint.review_summary.recommended_for.join(', ')}
+													</div>
+												)}
 											</div>
 										)}
 									</div>
