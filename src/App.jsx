@@ -328,9 +328,7 @@ export default function App() {
 			const r = await fetch(getBackendUrlWithPath('api/recommend'), {
 				method: 'POST',
 				headers: { 
-					'Content-Type': 'application/json',
-					'Accept': 'application/json',
-					'Origin': window.location.origin
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
 				mode: 'cors',
@@ -389,9 +387,7 @@ export default function App() {
 			const r = await fetch(getBackendUrlWithPath('api/stores/search'), {
 				method: 'POST',
 				headers: { 
-					'Content-Type': 'application/json',
-					'Accept': 'application/json',
-					'Origin': window.location.origin
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
 				mode: 'cors',
@@ -457,9 +453,7 @@ export default function App() {
 			const r = await fetch(getBackendUrlWithPath('api/stores/confirm'), {
 				method: 'POST',
 				headers: { 
-					'Content-Type': 'application/json',
-					'Accept': 'application/json',
-					'Origin': window.location.origin
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
 				mode: 'cors',
@@ -510,9 +504,7 @@ export default function App() {
 			const r = await fetch(getBackendUrlWithPath('api/routes/confirm'), {
 				method: 'POST',
 				headers: { 
-					'Content-Type': 'application/json',
-					'Accept': 'application/json',
-					'Origin': window.location.origin
+					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify(requestBody),
 				mode: 'cors',
@@ -563,10 +555,6 @@ export default function App() {
 				const promises = processingStores.map(store => 
 					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
 						method: 'GET',
-						headers: { 
-							'Accept': 'application/json',
-							'Origin': window.location.origin
-						},
 						mode: 'cors',
 						credentials: 'omit'
 					}).then(r => r.ok ? r.json() : null)
@@ -615,10 +603,6 @@ export default function App() {
 				const promises = processingStores.map(store => 
 					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
 						method: 'GET',
-						headers: { 
-							'Accept': 'application/json',
-							'Origin': window.location.origin
-						},
 						mode: 'cors',
 						credentials: 'omit'
 					}).then(r => r.ok ? r.json() : null)
