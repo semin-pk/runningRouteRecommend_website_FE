@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './App.css'
+import { getBackendUrl, getBackendUrlWithPath } from './utils/api.js'
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
-
-// URL 정리 함수 (끝의 슬래시 제거)
-const getBackendUrl = (path) => {
-	const baseUrl = BACKEND_URL?.replace(/\/+$/, '') || ''
-	const cleanPath = path?.replace(/^\/+/, '') || ''
-	return cleanPath ? `${baseUrl}/${cleanPath}` : baseUrl
-}
+const BACKEND_URL = getBackendUrl()
 
 
 
@@ -168,6 +163,12 @@ function MapPicker({ onPick }) {
 }
 
 export default function App() {
+	const navigate = useNavigate()
+	
+	// 인증 상태
+	const [isAuthenticated, setIsAuthenticated] = useState(false)
+	const [userInfo, setUserInfo] = useState(null)
+	
 	// 기존 상태
 	const [lat, setLat] = useState(null)
 	const [lng, setLng] = useState(null)
@@ -196,6 +197,54 @@ export default function App() {
 	const [searchType, setSearchType] = useState(null) // 'single' or 'route'
 
 	const canSubmit = lat !== null && lng !== null && totalDistanceKm > 0 && waypoints.length > 0
+
+	// 인증 상태 확인
+	useEffect(() => {
+		const checkAuth = async () => {
+			const accessToken = localStorage.getItem('access_token')
+			if (accessToken) {
+				try {
+					const response = await fetch(`${BACKEND_URL}/auth/me`, {
+						headers: {
+							'Authorization': `Bearer ${accessToken}`,
+						},
+						credentials: 'include',
+					})
+					if (response.ok) {
+						const user = await response.json()
+						setUserInfo(user)
+						setIsAuthenticated(true)
+					} else {
+						localStorage.removeItem('access_token')
+						setIsAuthenticated(false)
+					}
+				} catch (error) {
+					console.error('Auth check failed:', error)
+					localStorage.removeItem('access_token')
+					setIsAuthenticated(false)
+				}
+			} else {
+				setIsAuthenticated(false)
+			}
+		}
+		checkAuth()
+	}, [])
+
+	const handleLogout = async () => {
+		try {
+			await fetch(`${BACKEND_URL}/auth/logout`, {
+				method: 'POST',
+				credentials: 'include',
+			})
+		} catch (error) {
+			console.error('Logout failed:', error)
+		} finally {
+			localStorage.removeItem('access_token')
+			setIsAuthenticated(false)
+			setUserInfo(null)
+			navigate('/login')
+		}
+	}
 
 	const onPick = useCallback((la, ln) => {
 		setLat(la)
@@ -276,7 +325,7 @@ export default function App() {
 				is_round_trip: isRoundTrip
 			}
 			
-			const r = await fetch(getBackendUrl('api/recommend'), {
+			const r = await fetch(getBackendUrlWithPath('api/recommend'), {
 				method: 'POST',
 				headers: { 
 					'Content-Type': 'application/json',
@@ -337,7 +386,7 @@ export default function App() {
 				is_round_trip: isRoundTrip
 			}
 			
-			const r = await fetch(getBackendUrl('api/stores/search'), {
+			const r = await fetch(getBackendUrlWithPath('api/stores/search'), {
 				method: 'POST',
 				headers: { 
 					'Content-Type': 'application/json',
@@ -405,7 +454,7 @@ export default function App() {
 				is_round_trip: isRoundTrip
 			}
 			
-			const r = await fetch(getBackendUrl('api/stores/confirm'), {
+			const r = await fetch(getBackendUrlWithPath('api/stores/confirm'), {
 				method: 'POST',
 				headers: { 
 					'Content-Type': 'application/json',
@@ -458,7 +507,7 @@ export default function App() {
 				is_round_trip: isRoundTrip
 			}
 			
-			const r = await fetch(getBackendUrl('api/routes/confirm'), {
+			const r = await fetch(getBackendUrlWithPath('api/routes/confirm'), {
 				method: 'POST',
 				headers: { 
 					'Content-Type': 'application/json',
@@ -512,7 +561,7 @@ export default function App() {
 		const checkReviews = async () => {
 			try {
 				const promises = processingStores.map(store => 
-					fetch(getBackendUrl(`api/stores/${store.store_id}`), {
+					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
 						method: 'GET',
 						headers: { 
 							'Accept': 'application/json',
@@ -554,15 +603,17 @@ export default function App() {
 	useEffect(() => {
 		if (!routeCandidates || routeCandidates.length === 0) return
 		
-		// 모든 경로의 모든 가게에서 processing 상태인 것 찾기
+		// 모든 경로의 모든 가게에서 processing 상태이거나 review_summary가 없는 것 찾기
 		const allStores = routeCandidates.flatMap(route => route.stores || [])
-		const processingStores = allStores.filter(s => s.summary_status === 'processing')
+		const processingStores = allStores.filter(s => 
+			(s.summary_status === 'processing' || !s.summary_status) && !s.review_summary
+		)
 		if (processingStores.length === 0) return
 		
 		const checkReviews = async () => {
 			try {
 				const promises = processingStores.map(store => 
-					fetch(getBackendUrl(`api/stores/${store.store_id}`), {
+					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
 						method: 'GET',
 						headers: { 
 							'Accept': 'application/json',
@@ -574,11 +625,13 @@ export default function App() {
 				)
 				
 				const results = await Promise.all(promises)
+				let hasUpdate = false
 				const updatedRoutes = routeCandidates.map(route => ({
 					...route,
 					stores: route.stores.map(store => {
 						const result = results.find(r => r && r.store_id === store.store_id)
-						if (result && result.review_summary) {
+						if (result && result.review_summary && !store.review_summary) {
+							hasUpdate = true
 							return {
 								...store,
 								summary_status: 'ready',
@@ -589,7 +642,9 @@ export default function App() {
 					})
 				}))
 				
-				setRouteCandidates(updatedRoutes)
+				if (hasUpdate) {
+					setRouteCandidates(updatedRoutes)
+				}
 			} catch (e) {
 				console.error('Failed to check reviews:', e)
 			}
@@ -602,9 +657,55 @@ export default function App() {
 
 	return (
 		<div className="app-container">
-			<header className="app-header">
+			<header className="app-header" style={{ position: 'relative' }}>
 				<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
 				<h2 className="app-title">러닝 코스 랜덤 추천</h2>
+				<div style={{ 
+					position: 'absolute', 
+					right: '20px', 
+					top: '50%', 
+					transform: 'translateY(-50%)',
+					display: 'flex',
+					alignItems: 'center',
+					gap: '10px'
+				}}>
+					{isAuthenticated && userInfo && (
+						<span style={{ fontSize: '14px', color: '#666' }}>
+							{userInfo.nickname || userInfo.email}님
+						</span>
+					)}
+					{isAuthenticated ? (
+						<button
+							onClick={handleLogout}
+							style={{
+								padding: '8px 16px',
+								backgroundColor: '#f44336',
+								color: 'white',
+								border: 'none',
+								borderRadius: '4px',
+								cursor: 'pointer',
+								fontSize: '14px'
+							}}
+						>
+							로그아웃
+						</button>
+					) : (
+						<button
+							onClick={() => navigate('/login')}
+							style={{
+								padding: '8px 16px',
+								backgroundColor: '#4CAF50',
+								color: 'white',
+								border: 'none',
+								borderRadius: '4px',
+								cursor: 'pointer',
+								fontSize: '14px'
+							}}
+						>
+							로그인
+						</button>
+					)}
+				</div>
 			</header>
 			<MapPicker onPick={onPick} />
 			
@@ -885,9 +986,9 @@ export default function App() {
 										</div>
 									)}
 									<div style={{ marginTop: '10px' }}>
-										{store.summary_status === 'processing' ? (
-											<div style={{ color: '#ff9800', fontSize: '14px' }}>
-												⏳ AI가 장소를 찾고 있어요. 잠시만 기다려주세요.
+										{(!store.summary_status || store.summary_status === 'processing') && !store.review_summary ? (
+											<div style={{ color: '#ff9800', fontSize: '14px', fontWeight: '500' }}>
+												⏳ AI가 리뷰를 요약 중입니다...
 											</div>
 										) : store.review_summary ? (
 											<div style={{ fontSize: '14px' }}>
@@ -967,7 +1068,15 @@ export default function App() {
 									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '10px', color: '#333' }}>
 										경로 {routeIndex + 1} (총 거리: {route.total_distance_km}km)
 									</div>
-									{route.stores && route.stores.map((store, storeIndex) => (
+									{route.stores && route.stores.map((store, storeIndex) => {
+										// 디버깅: store 상태 확인
+										console.log(`[경로 후보] 가게 ${storeIndex + 1}:`, {
+											name: store.name,
+											summary_status: store.summary_status,
+											has_review_summary: !!store.review_summary
+										})
+										
+										return (
 										<div key={store.store_id} style={{ marginBottom: '10px', paddingLeft: '15px', borderLeft: '3px solid #4CAF50' }}>
 											<div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '5px', color: '#333' }}>
 												{storeIndex + 1}. {store.name}
@@ -975,11 +1084,16 @@ export default function App() {
 											<div style={{ color: '#666', marginBottom: '3px' }}>
 												📍 {store.address}
 											</div>
-											{store.summary_status === 'processing' ? (
-												<div style={{ color: '#ff9800', fontSize: '14px', marginTop: '5px' }}>
-													⏳ AI가 장소를 찾고 있어요. 잠시만 기다려주세요.
+											{store.phone && (
+												<div style={{ color: '#666', marginBottom: '3px' }}>
+													📞 {store.phone}
 												</div>
-											) : store.review_summary ? (
+											)}
+											{!store.review_summary ? (
+												<div style={{ color: '#ff9800', fontSize: '14px', marginTop: '5px', fontWeight: '500' }}>
+													⏳ AI가 리뷰를 요약 중입니다...
+												</div>
+											) : (
 												<div style={{ fontSize: '13px', color: '#888', marginTop: '5px' }}>
 													{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
 														<div>메뉴: {store.review_summary.main_menu.join(', ')}</div>
@@ -991,9 +1105,10 @@ export default function App() {
 														<div>추천: {store.review_summary.recommended_for.join(', ')}</div>
 													)}
 												</div>
-											) : null}
+											)}
 										</div>
-									))}
+										)
+									})}
 								</div>
 							))}
 							
@@ -1039,8 +1154,11 @@ export default function App() {
 									{routeResult.waypoints.map((waypoint, index) => (
 										<div key={waypoint.order} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
 											<div style={{ fontWeight: 'bold' }}>{index + 1}. {waypoint.place_name}</div>
-											{waypoint.review_summary && (
+											{waypoint.review_summary ? (
 												<div style={{ fontSize: '13px', color: '#666', marginTop: '5px' }}>
+													<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '3px', fontSize: '12px' }}>
+														✓ 리뷰 요약 완료
+													</div>
 													{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
 														<div>메뉴: {waypoint.review_summary.main_menu.join(', ')}</div>
 													)}
@@ -1051,7 +1169,7 @@ export default function App() {
 														<div>추천: {waypoint.review_summary.recommended_for.join(', ')}</div>
 													)}
 												</div>
-											)}
+											) : null}
 										</div>
 									))}
 								</div>
@@ -1094,44 +1212,56 @@ export default function App() {
 						{result.waypoints && result.waypoints.length > 0 ? (
 							<div>
 								{result.waypoints.map((waypoint, index) => (
-									<div key={waypoint.order} className="waypoint-result">
-										<div className="waypoint-result-title">
-											<span style={{ color: '#000' }}>📍 경유지 {waypoint.order}:</span> 
-											<span style={{ color: '#000', marginLeft: 8 }}>{waypoint.place_name}</span>
+									<div 
+										key={waypoint.order} 
+										style={{
+											border: '1px solid #ddd',
+											borderRadius: '8px',
+											padding: '15px',
+											marginBottom: '15px',
+											backgroundColor: 'white',
+											transition: 'all 0.2s'
+										}}
+									>
+									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px', color: '#333' }}>
+										{waypoint.order}. {waypoint.place_name}
+									</div>
+									<div style={{ color: '#666', marginBottom: '5px' }}>
+										📍 {waypoint.road_address_name || waypoint.address_name || ''}
+									</div>
+									{waypoint.phone && (
+										<div style={{ color: '#666', marginBottom: '5px' }}>
+											📞 {waypoint.phone}
 										</div>
-										<div className="waypoint-result-theme">
-											테마: <strong>{waypoint.theme_keyword}</strong> | 
-											거리: <strong>{waypoint.distance_km.toFixed(2)}km</strong>
-										</div>
-										{waypoint.address_name && (
-											<div className="waypoint-result-address">
-												주소: {waypoint.address_name}
+									)}
+									<div style={{ marginTop: '10px' }}>
+										{!waypoint.review_summary ? (
+											<div style={{ color: '#ff9800', fontSize: '14px' }}>
+												⏳ AI가 리뷰를 요약 중입니다.
 											</div>
-										)}
-										{waypoint.phone && (
-											<div className="waypoint-result-phone">
-												전화: {waypoint.phone}
-											</div>
-										)}
-										{waypoint.review_summary && (
-											<div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f9f0', borderRadius: '5px' }}>
+										) : waypoint.review_summary ? (
+											<div style={{ fontSize: '14px' }}>
+												<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+													✓ 리뷰 요약 완료
+												</div>
 												{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
-													<div style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
+													<div style={{ color: '#666', marginBottom: '3px' }}>
 														메뉴: {waypoint.review_summary.main_menu.join(', ')}
 													</div>
 												)}
 												{waypoint.review_summary.atmosphere && waypoint.review_summary.atmosphere.length > 0 && (
-													<div style={{ fontSize: '14px', color: '#666', marginBottom: '3px' }}>
+													<div style={{ color: '#666', marginBottom: '3px' }}>
 														분위기: {waypoint.review_summary.atmosphere.join(', ')}
 													</div>
 												)}
 												{waypoint.review_summary.recommended_for && waypoint.review_summary.recommended_for.length > 0 && (
-													<div style={{ fontSize: '14px', color: '#666' }}>
+													<div style={{ color: '#666' }}>
 														추천: {waypoint.review_summary.recommended_for.join(', ')}
 													</div>
 												)}
 											</div>
-										)}
+										) : null}
+									</div>
 									</div>
 								))}
 								
