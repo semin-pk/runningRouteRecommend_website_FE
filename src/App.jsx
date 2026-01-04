@@ -414,6 +414,19 @@ export default function App() {
 			} else if (data.search_type === 'route') {
 				// 경유지 2개 이상: 경로 선택
 				console.log('[상세 검색] 경로 모드, 경로 개수:', data.routes?.length || 0)
+				console.log('[상세 검색] 경로 상세 구조:', JSON.stringify(data.routes, null, 2))
+				if (data.routes && data.routes.length > 0) {
+					console.log('[상세 검색] 첫 번째 경로 구조:', {
+						route_id: data.routes[0].route_id,
+						stores_count: data.routes[0].stores?.length || 0,
+						stores_structure: data.routes[0].stores?.[0] ? {
+							store_id: data.routes[0].stores[0].store_id,
+							name: data.routes[0].stores[0].name,
+							summary_status: data.routes[0].stores[0].summary_status,
+							has_review_summary: !!data.routes[0].stores[0].review_summary
+						} : null
+					})
+				}
 				setRouteCandidates(data.routes || [])
 			} else {
 				console.warn('[상세 검색] 알 수 없는 search_type:', data.search_type)
@@ -563,18 +576,21 @@ export default function App() {
 				const results = await Promise.all(promises)
 				const updatedStores = storeCandidates.map(store => {
 					const result = results.find(r => r && r.store_id === store.store_id)
-					if (result && result.review_summary) {
+					// summary_status가 ready가 되었거나 review_summary가 생겼으면 업데이트
+					if (result && result.summary_status === 'ready' && store.summary_status === 'processing') {
 						return {
 							...store,
-							summary_status: 'ready',
-							review_summary: result.review_summary
+							summary_status: result.summary_status,
+							review_summary: result.review_summary || store.review_summary
 						}
 					}
 					return store
 				})
 				
-				if (updatedStores.some(s => s.summary_status === 'ready' && 
-					storeCandidates.find(orig => orig.store_id === s.store_id)?.summary_status === 'processing')) {
+				// 변경사항이 있으면 업데이트
+				if (updatedStores.some((s, idx) => 
+					s.summary_status === 'ready' && 
+					storeCandidates[idx]?.summary_status === 'processing')) {
 					setStoreCandidates(updatedStores)
 				}
 			} catch (e) {
@@ -588,18 +604,99 @@ export default function App() {
 	}, [storeCandidates])
 	
 	// 리뷰 요약 상태 확인 (폴링) - 경로 후보용
+	const routeCandidatesRef = useRef(routeCandidates)
+	
+	// routeCandidates가 변경될 때마다 ref 업데이트
 	useEffect(() => {
+		routeCandidatesRef.current = routeCandidates
+	}, [routeCandidates])
+	
+	useEffect(() => {
+		// routeCandidates가 없으면 interval 생성하지 않음
 		if (!routeCandidates || routeCandidates.length === 0) return
 		
-		// 모든 경로의 모든 가게에서 processing 상태이거나 review_summary가 없는 것 찾기
-		const allStores = routeCandidates.flatMap(route => route.stores || [])
-		const processingStores = allStores.filter(s => 
-			(s.summary_status === 'processing' || !s.summary_status) && !s.review_summary
-		)
-		if (processingStores.length === 0) return
+		// processingStores가 0인 상태가 연속으로 몇 번 지속되었는지 추적
+		let consecutiveZeroCount = 0
+		const MAX_CONSECUTIVE_ZERO = 2 // 연속 2회(6초) 0이면 종료
+		
+		// interval ID를 저장하여 cleanup에서 확실히 제거
+		let intervalId = null
 		
 		const checkReviews = async () => {
 			try {
+				// 매번 최신 routeCandidates를 ref에서 가져오기
+				const currentRoutes = routeCandidatesRef.current
+				if (!currentRoutes || currentRoutes.length === 0) {
+					console.log('[poll] routes length', 0, '- skip: no routes in ref')
+					consecutiveZeroCount++
+					if (consecutiveZeroCount >= MAX_CONSECUTIVE_ZERO) {
+						console.log('[poll] stopping: no routes in ref for', consecutiveZeroCount, 'consecutive times')
+						if (intervalId) clearInterval(intervalId)
+					}
+					return
+				}
+				
+				// 디버깅: 경로 구조 확인
+				console.log('[poll] routes length', currentRoutes.length)
+				console.log('[poll] 첫 번째 경로 구조:', currentRoutes[0] ? {
+					route_id: currentRoutes[0].route_id,
+					has_stores: !!currentRoutes[0].stores,
+					stores_type: Array.isArray(currentRoutes[0].stores) ? 'array' : typeof currentRoutes[0].stores,
+					stores_length: currentRoutes[0].stores?.length || 0,
+					stores_keys: currentRoutes[0].stores?.[0] ? Object.keys(currentRoutes[0].stores[0]) : []
+				} : 'no first route')
+				
+				// 모든 경로의 모든 가게에서 processing 상태인 것 찾기
+				// route.stores가 배열인지 확인하고, 각 store가 store_id와 summary_status를 가지고 있는지 확인
+				const allStores = currentRoutes.flatMap(route => {
+					// route.stores가 배열이고 각 요소가 객체인지 확인
+					if (!route || !route.stores || !Array.isArray(route.stores)) {
+						console.warn('[poll] route.stores is not an array:', route)
+						return []
+					}
+					return route.stores.filter(store => {
+						// store_id와 summary_status가 있는지 확인
+						if (!store || !store.store_id || !store.summary_status) {
+							console.warn('[poll] store missing required fields:', store)
+							return false
+						}
+						return true
+					})
+				})
+				
+				const processingStores = allStores.filter(s => {
+					const isProcessing = s.summary_status === 'processing'
+					if (isProcessing && !s.store_id) {
+						console.warn('[poll] processing store missing store_id:', s)
+					}
+					return isProcessing
+				})
+				
+				// 디버깅 로그
+				console.log('[poll] allStores count', allStores.length)
+				console.log('[poll] processingStores count', processingStores.length)
+				console.log('[poll] processing store_ids', processingStores.map(s => s.store_id))
+				
+				// processingStores가 0이면 연속 카운트 증가
+				if (processingStores.length === 0) {
+					consecutiveZeroCount++
+					console.log('[poll] no processing stores (consecutive count:', consecutiveZeroCount, ')')
+					
+					// 연속으로 MAX_CONSECUTIVE_ZERO회 0이면 폴링 종료
+					if (consecutiveZeroCount >= MAX_CONSECUTIVE_ZERO) {
+						console.log('[poll] all stores are ready! stopping polling after', consecutiveZeroCount, 'consecutive checks')
+						if (intervalId) {
+							clearInterval(intervalId)
+							intervalId = null
+						}
+					}
+					return // 요청만 skip
+				}
+				
+				// processingStores가 있으면 연속 카운트 리셋
+				consecutiveZeroCount = 0
+				
+				// processingStores가 있으면 GET 요청 실행
 				const promises = processingStores.map(store => 
 					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
 						method: 'GET',
@@ -609,33 +706,103 @@ export default function App() {
 				)
 				
 				const results = await Promise.all(promises)
-				let hasUpdate = false
-				const updatedRoutes = routeCandidates.map(route => ({
-					...route,
-					stores: route.stores.map(store => {
-						const result = results.find(r => r && r.store_id === store.store_id)
-						if (result && result.review_summary && !store.review_summary) {
-							hasUpdate = true
-							return {
-								...store,
-								summary_status: 'ready',
-								review_summary: result.review_summary
+				
+				// 최신 routeCandidates를 다시 가져와서 업데이트
+				const latestRoutes = routeCandidatesRef.current
+				if (!latestRoutes || latestRoutes.length === 0) {
+					console.log('[poll] skip update: no routes in ref')
+					return // 업데이트만 skip
+				}
+				
+				// ready가 된 store_id 목록 추출
+				const readyStoreIds = results
+					.filter(r => r && r.summary_status === 'ready')
+					.map(r => r.store_id)
+				
+				if (readyStoreIds.length === 0) {
+					console.log('[poll] no ready stores found')
+					return
+				}
+				
+				console.log('[poll] ready store_ids to update:', readyStoreIds)
+				
+				// 불변 업데이트: routes 전체를 map, 각 route의 stores 배열을 map, store_id 일치하는 항목만 교체
+				const updatedRoutes = latestRoutes.map(route => {
+					// route의 stores 배열에서 업데이트가 필요한 store가 있는지 확인
+					const hasStoreToUpdate = route.stores.some(store => 
+						readyStoreIds.includes(store.store_id) && store.summary_status === 'processing'
+					)
+					
+					if (!hasStoreToUpdate) {
+						// 업데이트할 store가 없으면 route 객체 그대로 반환
+						return route
+					}
+					
+					// 업데이트가 필요한 경우: stores 배열을 map하여 해당 store_id만 교체
+					const updatedStores = route.stores.map(store => {
+						// store_id가 ready 목록에 있고, 현재 processing 상태인 경우만 업데이트
+						if (readyStoreIds.includes(store.store_id) && store.summary_status === 'processing') {
+							const result = results.find(r => r && r.store_id === store.store_id)
+							if (result && result.summary_status === 'ready') {
+								console.log(`[poll] updating store ${store.store_id} (${store.name})`)
+								return {
+									...store, // 기존 store 속성 유지
+									summary_status: result.summary_status, // 'ready'로 업데이트
+									review_summary: result.review_summary || store.review_summary // review_summary 업데이트
+								}
 							}
 						}
+						// 업데이트할 필요 없으면 store 객체 그대로 반환
 						return store
 					})
-				}))
+					
+					// route 객체를 불변 업데이트
+					return {
+						...route, // 기존 route 속성 유지
+						stores: updatedStores // 업데이트된 stores 배열로 교체
+					}
+				})
+				
+				// 실제로 변경사항이 있는지 확인 (참조 비교)
+				const hasUpdate = updatedRoutes.some((route, routeIdx) => {
+					const originalRoute = latestRoutes[routeIdx]
+					if (!originalRoute) return false
+					
+					// stores 배열이 변경되었는지 확인
+					return route.stores.some((store, storeIdx) => {
+						const originalStore = originalRoute.stores[storeIdx]
+						if (!originalStore) return false
+						
+						// summary_status가 processing에서 ready로 변경되었는지 확인
+						return originalStore.summary_status === 'processing' && 
+						       store.summary_status === 'ready'
+					})
+				})
 				
 				if (hasUpdate) {
+					console.log('[poll] updating routeCandidates: partial update by store_id')
 					setRouteCandidates(updatedRoutes)
+				} else {
+					console.log('[poll] no updates needed (already updated or no changes)')
 				}
 			} catch (e) {
 				console.error('Failed to check reviews:', e)
 			}
 		}
 		
-		const interval = setInterval(checkReviews, 3000) // 3초마다 확인
-		return () => clearInterval(interval)
+		// routeCandidates가 존재하면 무조건 interval 생성
+		// 즉시 한 번 실행하고, 이후 3초마다 확인
+		checkReviews()
+		intervalId = setInterval(checkReviews, 3000) // 3초마다 확인
+		
+		// cleanup: 컴포넌트 unmount 시 또는 routeCandidates 변경 시 interval 제거
+		return () => {
+			console.log('[poll] cleanup: clearing interval')
+			if (intervalId) {
+				clearInterval(intervalId)
+				intervalId = null
+			}
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [routeCandidates])
 
@@ -1052,15 +1219,7 @@ export default function App() {
 									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '10px', color: '#333' }}>
 										경로 {routeIndex + 1} (총 거리: {route.total_distance_km}km)
 									</div>
-									{route.stores && route.stores.map((store, storeIndex) => {
-										// 디버깅: store 상태 확인
-										console.log(`[경로 후보] 가게 ${storeIndex + 1}:`, {
-											name: store.name,
-											summary_status: store.summary_status,
-											has_review_summary: !!store.review_summary
-										})
-										
-										return (
+									{route.stores && route.stores.map((store, storeIndex) => (
 										<div key={store.store_id} style={{ marginBottom: '10px', paddingLeft: '15px', borderLeft: '3px solid #4CAF50' }}>
 											<div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '5px', color: '#333' }}>
 												{storeIndex + 1}. {store.name}
@@ -1073,26 +1232,36 @@ export default function App() {
 													📞 {store.phone}
 												</div>
 											)}
-											{!store.review_summary ? (
-												<div style={{ color: '#ff9800', fontSize: '14px', marginTop: '5px', fontWeight: '500' }}>
-													⏳ AI가 리뷰를 요약 중입니다...
-												</div>
-											) : (
-												<div style={{ fontSize: '13px', color: '#888', marginTop: '5px' }}>
-													{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
-														<div>메뉴: {store.review_summary.main_menu.join(', ')}</div>
-													)}
-													{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
-														<div>분위기: {store.review_summary.atmosphere.join(', ')}</div>
-													)}
-													{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
-														<div>추천: {store.review_summary.recommended_for.join(', ')}</div>
-													)}
-												</div>
-											)}
+											<div style={{ marginTop: '10px' }}>
+												{(!store.summary_status || store.summary_status === 'processing') && !store.review_summary ? (
+													<div style={{ color: '#ff9800', fontSize: '14px', fontWeight: '500' }}>
+														⏳ AI가 리뷰를 요약 중입니다...
+													</div>
+												) : store.review_summary ? (
+													<div style={{ fontSize: '14px' }}>
+														<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+															✓ 리뷰 요약 완료
+														</div>
+														{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
+															<div style={{ color: '#666', marginBottom: '3px' }}>
+																메뉴: {store.review_summary.main_menu.join(', ')}
+															</div>
+														)}
+														{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
+															<div style={{ color: '#666', marginBottom: '3px' }}>
+																분위기: {store.review_summary.atmosphere.join(', ')}
+															</div>
+														)}
+														{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
+															<div style={{ color: '#666' }}>
+																추천: {store.review_summary.recommended_for.join(', ')}
+															</div>
+														)}
+													</div>
+												) : null}
+											</div>
 										</div>
-										)
-									})}
+									))}
 								</div>
 							))}
 							
