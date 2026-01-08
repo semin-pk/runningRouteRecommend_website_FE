@@ -4,7 +4,7 @@
 
 // 백엔드 URL 정규화 (끝의 슬래시 제거)
 export const getBackendUrl = () => {
-  const url = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '') || 'http://localhost:8000'
+  const url = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '')
   return url
 }
 
@@ -14,6 +14,8 @@ export const getBackendUrlWithPath = (path) => {
   const cleanPath = path?.replace(/^\/+/, '') || ''
   return cleanPath ? `${baseUrl}/${cleanPath}` : baseUrl
 }
+
+
 
 
 
