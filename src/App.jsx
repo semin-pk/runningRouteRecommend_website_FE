@@ -2,9 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 import { getBackendUrl, getBackendUrlWithPath } from './utils/api.js'
+import { fetchCurrentWeather } from './services/weather'
+import { mapWeatherCodeToGroup, decideThemeId, applyThemeId, getHeroMessage } from './utils/theme'
+import { getCachedWeather, setCachedWeather } from './utils/weatherCache'
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
 const BACKEND_URL = getBackendUrl()
+
+const DEFAULT_LAT = 37.566545
+const DEFAULT_LNG = 126.977996
 
 
 
@@ -87,7 +93,7 @@ function useKakaoLoader() {
 	return { loaded, error }
 }
 
-function MapPicker({ onPick }) {
+function MapPicker({ onPick, onSelectLocation }) {
 	const ref = useRef(null)
 	const [coords, setCoords] = useState(null)
 	const { loaded, error } = useKakaoLoader()
@@ -111,21 +117,30 @@ function MapPicker({ onPick }) {
 			})
 			marker.setMap(map)
 			
-			// 클릭 이벤트 등록
+			// 클릭 이벤트 등록 (위치 확정)
 			kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
 				const latlng = mouseEvent.latLng
 				marker.setPosition(latlng)
 				const lat = latlng.getLat()
 				const lng = latlng.getLng()
 				setCoords({ lat, lng })
-				onPick(lat, lng)
+				
+				// 기존 onPick (러닝 코스 추천용)
+				if (onPick) {
+					onPick(lat, lng)
+				}
+				
+				// 위치 확정 콜백 (테마 갱신용)
+				if (onSelectLocation) {
+					onSelectLocation(lat, lng)
+				}
 			})
 			
 			console.log('Kakao Map initialized successfully')
 		} catch (error) {
 			console.error('Error initializing Kakao Map:', error)
 		}
-	}, [loaded, onPick])
+	}, [loaded, onPick, onSelectLocation])
 
 	if (error) {
 		return (
@@ -169,6 +184,10 @@ export default function App() {
 	const [isAuthenticated, setIsAuthenticated] = useState(false)
 	const [userInfo, setUserInfo] = useState(null)
 	
+	// 선택된 좌표 (테마 결정용)
+	const [selectedLat, setSelectedLat] = useState(37.566545)
+	const [selectedLng, setSelectedLng] = useState(126.977996)
+	
 	// 기존 상태
 	const [lat, setLat] = useState(null)
 	const [lng, setLng] = useState(null)
@@ -197,6 +216,127 @@ export default function App() {
 	const [searchType, setSearchType] = useState(null) // 'single' or 'route'
 
 	const canSubmit = lat !== null && lng !== null && totalDistanceKm > 0 && waypoints.length > 0
+
+	// 한 줄 카피 상태
+	const [heroMessage, setHeroMessage] = useState("🏃 오늘 컨디션에 맞춰 코스를 골라볼까요?")
+	const [currentWeatherGroup, setCurrentWeatherGroup] = useState("clear")
+	const [currentThemeId, setCurrentThemeId] = useState("day_clear")
+	
+	// 안전 모드 토글 상태
+	const [safetyModeEnabled, setSafetyModeEnabled] = useState(false)
+
+	// AbortController ref (이전 요청 취소용)
+	const abortControllerRef = useRef(null)
+	
+	// 디바운스 타이머 ref
+	const debounceTimerRef = useRef(null)
+
+	// 날씨 API 호출 및 테마 적용 (디바운스 + AbortController + 캐시 적용)
+	useEffect(() => {
+		// 이전 디바운스 타이머 취소
+		if (debounceTimerRef.current !== null) {
+			clearTimeout(debounceTimerRef.current)
+			debounceTimerRef.current = null
+		}
+
+		// 이전 요청 취소
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort()
+		}
+
+		// 디바운스: 500ms 대기
+		debounceTimerRef.current = setTimeout(() => {
+			const currentLat = selectedLat
+			const currentLng = selectedLng
+			
+			console.log('📍 좌표 변경됨 (디바운스 후):', currentLat, currentLng)
+
+			// 캐시 확인
+			const cached = getCachedWeather(currentLat, currentLng)
+			if (cached) {
+				console.log('✅ 캐시에서 날씨 데이터 사용')
+				const group = mapWeatherCodeToGroup(cached.weatherCode)
+				const themeId = decideThemeId(group)
+
+				applyThemeId(themeId)
+				
+				// 카피 업데이트
+				setCurrentWeatherGroup(group)
+				setCurrentThemeId(themeId)
+				setHeroMessage(getHeroMessage(themeId, group))
+				
+				// 날씨가 정상으로 돌아오면 안전 모드 자동 해제
+				if (group !== 'rainy' && group !== 'snowy') {
+					setSafetyModeEnabled(false)
+				}
+
+				console.log('Weather OK (캐시):', {
+					weatherCode: cached.weatherCode,
+					temperature: cached.temperature
+				})
+				console.log('WeatherGroup:', group)
+				console.log('ThemeId applied:', themeId)
+				return
+			}
+
+			// 새 AbortController 생성
+			const abortController = new AbortController()
+			abortControllerRef.current = abortController
+
+			// API 호출
+			fetchCurrentWeather(currentLat, currentLng, abortController.signal)
+				.then((result) => {
+					// 요청이 취소되었는지 확인
+					if (abortController.signal.aborted) {
+						console.warn('⚠️ 요청이 취소되었습니다')
+						return
+					}
+
+					// 캐시에 저장
+					setCachedWeather(currentLat, currentLng, result.weatherCode, result.temperature)
+
+					const group = mapWeatherCodeToGroup(result.weatherCode)
+					const themeId = decideThemeId(group)
+
+					applyThemeId(themeId) // ✅ 실제 적용
+					
+					// 카피 업데이트
+					setCurrentWeatherGroup(group)
+					setCurrentThemeId(themeId)
+					setHeroMessage(getHeroMessage(themeId, group))
+					
+					// 날씨가 정상으로 돌아오면 안전 모드 자동 해제
+					if (group !== 'rainy' && group !== 'snowy') {
+						setSafetyModeEnabled(false)
+					}
+
+					console.log('Weather OK:', result)
+					console.log('WeatherGroup:', group)
+					console.log('ThemeId applied:', themeId)
+				})
+				.catch((error) => {
+					// Abort 에러는 무시 (warn만)
+					if (error.name === 'AbortError') {
+						console.warn('⚠️ 날씨 요청이 취소되었습니다')
+						return
+					}
+					
+					// 다른 에러는 로그만 (테마는 기존 유지)
+					console.error('Weather FAIL:', error)
+				})
+		}, 500) // 500ms 디바운스
+
+		// cleanup: 컴포넌트 unmount 시 타이머와 요청 정리
+		return () => {
+			if (debounceTimerRef.current !== null) {
+				clearTimeout(debounceTimerRef.current)
+				debounceTimerRef.current = null
+			}
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort()
+			}
+		}
+	}, [selectedLat, selectedLng])
 
 	// 인증 상태 확인
 	useEffect(() => {
@@ -249,6 +389,13 @@ export default function App() {
 	const onPick = useCallback((la, ln) => {
 		setLat(la)
 		setLng(ln)
+	}, [])
+	
+	// 지도에서 위치 확정 시 호출되는 콜백
+	const handleSelectLocation = useCallback((lat, lng) => {
+		setSelectedLat(lat)
+		setSelectedLng(lng)
+		console.log('✅ 위치 확정:', lat, lng)
 	}, [])
 
 	const addWaypoint = () => {
@@ -807,7 +954,7 @@ export default function App() {
 	}, [routeCandidates])
 
 	return (
-		<div className="app-container">
+		<div className="app-container page-bg">
 			<header className="app-header" style={{ position: 'relative' }}>
 				<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
 				<h2 className="app-title">러닝 코스 랜덤 추천</h2>
@@ -843,9 +990,44 @@ export default function App() {
 				</div>
 			</header>
 			
+			{/* Hero 영역 */}
+			<div className="hero-section">
+				<h1 className="hero-title">오늘은 어떤 러닝을 하고 싶나요?</h1>
+				<div className="hero-message">
+					{heroMessage}
+				</div>
+			</div>
+			
+			{/* 안전 러닝 배너 (rainy/snowy일 때만) */}
+			{(currentWeatherGroup === 'rainy' || currentWeatherGroup === 'snowy') && (
+				<div className="safety-banner">
+					<div className="safety-banner-content">
+						<span className="safety-icon">
+							{currentWeatherGroup === 'rainy' ? '☔' : '❄️'}
+						</span>
+						<span className="safety-message">
+							{currentWeatherGroup === 'rainy' 
+								? '노면이 미끄러울 수 있어요. 짧고 안전하게 달려요'
+								: '미끄럼 주의! 평지 위주로 짧게 추천해요'}
+						</span>
+						<button
+							className="safety-toggle-btn"
+							onClick={() => setSafetyModeEnabled(!safetyModeEnabled)}
+							aria-label="안전 모드 토글"
+						>
+							{safetyModeEnabled ? '안전 모드 ON' : '안전 모드 OFF'}
+						</button>
+					</div>
+					{safetyModeEnabled && (
+						<div className="safety-guide">
+							권장 거리: 3~5km | 평지 위주 코스 추천
+						</div>
+					)}
+				</div>
+			)}
+			
 			{/* 러닝 옵션 섹션 */}
 			<div className="running-options-section">
-				<h3 className="section-title">오늘은 어떤 러닝을 하고 싶나요?</h3>
 				<div className="running-options-grid">
 					<button 
 						className="running-option-btn"
@@ -915,7 +1097,7 @@ export default function App() {
 				</div>
 			</div>
 
-			<MapPicker onPick={onPick} />
+			<MapPicker onPick={onPick} onSelectLocation={handleSelectLocation} />
 			
 			{/* 모드 선택 탭 */}
 			<div className="mode-selector">

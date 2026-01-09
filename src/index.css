@@ -29,6 +29,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* 테마 기본값 */
+  --bg: linear-gradient(180deg, #F6FAFF 0%, #EEF5FF 55%, #F8FAFF 100%);
+  --overlay: rgba(255, 255, 255, 0.10);
+  --text: rgba(10, 20, 40, 0.92);
+  --text-muted: rgba(10, 20, 40, 0.60);
 }
 
 a {
@@ -99,4 +105,144 @@ button:focus-visible {
     --color-button: #f3f4ff;
     --color-button-hover-border: #2563eb;
   }
+}
+
+/* 테마 배경 스타일 */
+.page-bg {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  transition: background 700ms ease-in-out;
+}
+
+/* 오버레이 레이어 */
+.page-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 1;
+  pointer-events: none;
+  transition: background 700ms ease-in-out;
+}
+
+.page-bg > * {
+  position: relative; /* 오버레이 위로 */
+  z-index: 2;
+}
+
+/* Hero 영역 스타일 */
+.hero-section {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 32px 24px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 밝은 테마 Hero 영역 */
+:root[data-theme="morning_clear"] .hero-section,
+:root[data-theme="day_clear"] .hero-section {
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hero 제목 */
+.hero-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 479px) {
+  .hero-title {
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+  
+  .hero-section {
+    padding: 24px 16px;
+    margin-bottom: 32px;
+  }
+}
+
+/* 한 줄 카피 스타일 */
+.hero-message {
+  text-align: center;
+  padding: 12px 24px;
+  margin: 0 auto;
+  max-width: 600px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.5;
+  transition: opacity 500ms ease-in-out;
+}
+
+@media (max-width: 479px) {
+  .hero-message {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+}
+
+/* prefers-reduced-motion: 애니메이션 비활성화 */
+@media (prefers-reduced-motion: reduce) {
+  .page-bg::before,
+  .page-bg::after,
+  .hero-message {
+    transition: none;
+  }
+}
+
+
+/* 테마 5개 */
+:root[data-theme="night_clear"] {
+  --bg: radial-gradient(1200px circle at 20% 10%, #243B6B 0%, transparent 55%),
+        linear-gradient(180deg, #071022 0%, #0B1B33 55%, #061021 100%);
+  --overlay: rgba(6, 12, 24, 0.55);
+  --text: rgba(255, 255, 255, 0.92);
+  --text-muted: rgba(255, 255, 255, 0.70);
+}
+
+:root[data-theme="evening_clear"] {
+  --bg: radial-gradient(1000px circle at 80% 20%, #FFB55A 0%, transparent 55%),
+        linear-gradient(180deg, #2A1B44 0%, #4A1E5C 45%, #151A3A 100%);
+  --overlay: rgba(20, 16, 40, 0.45);
+  --text: rgba(255, 255, 255, 0.94);
+  --text-muted: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme="morning_clear"] {
+  --bg: radial-gradient(900px circle at 30% 15%, #DFF4FF 0%, transparent 60%),
+        linear-gradient(180deg, #B9E7FF 0%, #EAF7FF 50%, #F7FBFF 100%);
+  --overlay: rgba(255, 255, 255, 0.15);
+  --text: rgba(10, 20, 40, 0.90);
+  --text-muted: rgba(10, 20, 40, 0.60);
+}
+
+:root[data-theme="day_clear"] {
+  --bg: linear-gradient(180deg, #F6FAFF 0%, #EEF5FF 55%, #F8FAFF 100%);
+  --overlay: rgba(255, 255, 255, 0.10);
+  --text: rgba(10, 20, 40, 0.92);
+  --text-muted: rgba(10, 20, 40, 0.60);
+}
+
+:root[data-theme="rainy"] {
+  --bg: radial-gradient(1000px circle at 30% 10%, #3D5670 0%, transparent 55%),
+        linear-gradient(180deg, #0D1624 0%, #16283A 55%, #0B1420 100%);
+  --overlay: rgba(7, 12, 20, 0.60);
+  --text: rgba(255, 255, 255, 0.92);
+  --text-muted: rgba(255, 255, 255, 0.70);
 }
