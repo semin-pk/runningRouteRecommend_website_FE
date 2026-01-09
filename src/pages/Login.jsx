@@ -2,7 +2,7 @@
  * Login page with social login buttons.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getBackendUrl } from '../utils/api.js'
@@ -11,6 +11,7 @@ const BACKEND_URL = getBackendUrl()
 
 function Login() {
   const navigate = useNavigate()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
     // If already logged in, redirect to home
@@ -21,8 +22,17 @@ function Login() {
   }, [navigate])
 
   const handleSocialLogin = (provider) => {
+    // 중복 클릭 방지
+    if (isRedirecting) {
+      console.log('[Login] 이미 리다이렉트 중입니다. 중복 요청 무시')
+      return
+    }
+    
+    setIsRedirecting(true)
+    console.log(`[Login] ${provider} 로그인 시작 - 리다이렉트 중...`)
+    
     // Redirect to backend OAuth start endpoint
-    window.location.href = `${BACKEND_URL}/auth/${provider}/start`
+    window.location.href = `${BACKEND_URL}/api/v1/auth/${provider}/start`
   }
 
   return (
@@ -45,38 +55,44 @@ function Login() {
       }}>
         <button
           onClick={() => handleSocialLogin('kakao')}
+          disabled={isRedirecting}
           style={{
             padding: '1rem',
-            backgroundColor: '#FEE500',
+            backgroundColor: isRedirecting ? '#CCCCCC' : '#FEE500',
             color: '#000000',
             border: 'none',
             borderRadius: '8px',
             fontSize: '1rem',
             fontWeight: 'bold',
-            cursor: 'pointer',
+            cursor: isRedirecting ? 'not-allowed' : 'pointer',
+            opacity: isRedirecting ? 0.6 : 1,
           }}
         >
-          카카오로 로그인
+          {isRedirecting ? '리다이렉트 중...' : '카카오로 로그인'}
         </button>
 
         <button
           onClick={() => handleSocialLogin('naver')}
+          disabled={isRedirecting}
           style={{
             padding: '1rem',
-            backgroundColor: '#03C75A',
+            backgroundColor: isRedirecting ? '#CCCCCC' : '#03C75A',
             color: '#FFFFFF',
             border: 'none',
             borderRadius: '8px',
             fontSize: '1rem',
             fontWeight: 'bold',
-            cursor: 'pointer',
+            cursor: isRedirecting ? 'not-allowed' : 'pointer',
+            opacity: isRedirecting ? 0.6 : 1,
           }}
         >
-          네이버로 로그인
+          {isRedirecting ? '리다이렉트 중...' : '네이버로 로그인'}
         </button>
 
-        <button
+        {/* 구글 로그인 비활성화 */}
+        {/* <button
           onClick={() => handleSocialLogin('google')}
+          disabled={isRedirecting}
           style={{
             padding: '1rem',
             backgroundColor: '#FFFFFF',
@@ -85,11 +101,12 @@ function Login() {
             borderRadius: '8px',
             fontSize: '1rem',
             fontWeight: 'bold',
-            cursor: 'pointer',
+            cursor: isRedirecting ? 'not-allowed' : 'pointer',
+            opacity: isRedirecting ? 0.6 : 1,
           }}
         >
-          구글로 로그인
-        </button>
+          {isRedirecting ? '리다이렉트 중...' : '구글로 로그인'}
+        </button> */}
       </div>
     </div>
   )

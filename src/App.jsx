@@ -204,7 +204,7 @@ export default function App() {
 			const accessToken = localStorage.getItem('access_token')
 			if (accessToken) {
 				try {
-					const response = await fetch(`${BACKEND_URL}/auth/me`, {
+					const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
 						headers: {
 							'Authorization': `Bearer ${accessToken}`,
 						},
@@ -232,7 +232,7 @@ export default function App() {
 
 	const handleLogout = async () => {
 		try {
-			await fetch(`${BACKEND_URL}/auth/logout`, {
+			await fetch(`${BACKEND_URL}/api/v1/auth/logout`, {
 				method: 'POST',
 				credentials: 'include',
 			})
@@ -821,48 +821,106 @@ export default function App() {
 					gap: '10px'
 				}}>
 					{isAuthenticated && userInfo && (
-						<span style={{ fontSize: '14px', color: '#666' }}>
+						<span style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.7)' }}>
 							{userInfo.nickname || userInfo.email}님
 						</span>
 					)}
 					{isAuthenticated ? (
 						<button
 							onClick={handleLogout}
-							style={{
-								padding: '8px 16px',
-								backgroundColor: '#f44336',
-								color: 'white',
-								border: 'none',
-								borderRadius: '4px',
-								cursor: 'pointer',
-								fontSize: '14px'
-							}}
+							className="header-btn logout-btn"
 						>
 							로그아웃
 						</button>
 					) : (
 						<button
 							onClick={() => navigate('/login')}
-							style={{
-								padding: '8px 16px',
-								backgroundColor: '#4CAF50',
-								color: 'white',
-								border: 'none',
-								borderRadius: '4px',
-								cursor: 'pointer',
-								fontSize: '14px'
-							}}
+							className="header-btn login-btn"
 						>
 							로그인
 						</button>
 					)}
 				</div>
 			</header>
+			
+			{/* 러닝 옵션 섹션 */}
+			<div className="running-options-section">
+				<h3 className="section-title">오늘은 어떤 러닝을 하고 싶나요?</h3>
+				<div className="running-options-grid">
+					<button 
+						className="running-option-btn"
+						onClick={() => {
+							setWaypoints([{ theme_keyword: '', order: 1 }])
+							setTotalDistanceKm(5)
+						}}
+					>
+						<span className="option-icon">🏃</span>
+						<span className="option-text">가볍게 달리기</span>
+					</button>
+					<button 
+						className="running-option-btn"
+						onClick={() => {
+							setWaypoints([{ theme_keyword: '카페', order: 1 }])
+							setTotalDistanceKm(6.8)
+						}}
+					>
+						<span className="option-icon">☕</span>
+						<span className="option-text">카페 들러가는 런닝</span>
+					</button>
+					<button 
+						className="running-option-btn"
+						onClick={() => {
+							setWaypoints([{ theme_keyword: '야경', order: 1 }])
+							setTotalDistanceKm(7.2)
+						}}
+					>
+						<span className="option-icon">🌙</span>
+						<span className="option-text">야간 감성 런닝</span>
+					</button>
+					<button 
+						className="running-option-btn"
+						onClick={() => {
+							setWaypoints([{ theme_keyword: '맥주', order: 1 }])
+							setTotalDistanceKm(6)
+						}}
+					>
+						<span className="option-icon">🍺</span>
+						<span className="option-text">러닝 후 한 잔</span>
+					</button>
+				</div>
+			</div>
+
+			{/* 추천 러닝 코스 섹션 */}
+			<div className="recommended-courses-section">
+				<h3 className="section-title">추천 러닝 코스는 어떠세요?</h3>
+				<div className="courses-carousel">
+					<div className="course-card">
+						<div className="course-icon">☕</div>
+						<div className="course-title">연남 커미런</div>
+						<div className="course-info">약 6.8km · 러닝 후 들러기 좋은 카페</div>
+						<div className="course-map-preview"></div>
+					</div>
+					<div className="course-card">
+						<div className="course-icon">🌙</div>
+						<div className="course-title">한강 야간 런닝</div>
+						<div className="course-info">약 7.2km · 야간 뉴 코스</div>
+						<div className="course-time">35-45분</div>
+					</div>
+					<div className="course-card">
+						<div className="course-icon">🏃</div>
+						<div className="course-title">가벼운 런닝</div>
+						<div className="course-info">약 5km · 초보자 추천</div>
+						<div className="course-map-preview"></div>
+					</div>
+				</div>
+			</div>
+
 			<MapPicker onPick={onPick} />
 			
 			{/* 모드 선택 탭 */}
-			<div className="mode-selector" style={{ margin: '20px 0', textAlign: 'center' }}>
+			<div className="mode-selector">
 				<button
+					className={`mode-btn ${mode === 'quick' ? 'active' : ''}`}
 					onClick={() => {
 						setMode('quick')
 						setStoreCandidates(null)
@@ -871,20 +929,11 @@ export default function App() {
 						setSelectedRoute(null)
 						setRouteResult(null)
 					}}
-					style={{
-						padding: '10px 20px',
-						margin: '0 10px',
-						backgroundColor: mode === 'quick' ? '#4CAF50' : '#f0f0f0',
-						color: mode === 'quick' ? 'white' : '#333',
-						border: 'none',
-						borderRadius: '5px',
-						cursor: 'pointer',
-						fontSize: '16px'
-					}}
 				>
 					빠른 검색
 				</button>
 				<button
+					className={`mode-btn ${mode === 'detail' ? 'active' : ''}`}
 					onClick={() => {
 						setMode('detail')
 						setStoreCandidates(null)
@@ -892,16 +941,6 @@ export default function App() {
 						setSelectedStore(null)
 						setSelectedRoute(null)
 						setRouteResult(null)
-					}}
-					style={{
-						padding: '10px 20px',
-						margin: '0 10px',
-						backgroundColor: mode === 'detail' ? '#4CAF50' : '#f0f0f0',
-						color: mode === 'detail' ? 'white' : '#333',
-						border: 'none',
-						borderRadius: '5px',
-						cursor: 'pointer',
-						fontSize: '16px'
 					}}
 				>
 					상세 검색
@@ -996,9 +1035,9 @@ export default function App() {
 						<button 
 							disabled={!canSubmit || loading} 
 							onClick={submit} 
-							className="submit-btn"
+							className="submit-btn route-confirm-btn"
 						>
-							{loading ? '추천중...' : '러닝 코스 추천 받기'}
+							{loading ? '추천중...' : '이 루트로 달릴게요'}
 						</button>
 					</div>
 				</div>
@@ -1044,27 +1083,20 @@ export default function App() {
 					<div className="input-group" style={{ marginTop: '20px' }}>
 						<label>테마 검색어 (경유지별)</label>
 						<div style={{ marginBottom: '10px' }}>
-							{searchThemes.map((theme, index) => (
-								<div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+									{searchThemes.map((theme, index) => (
+								<div key={index} className="theme-input-row">
 									<input 
 										type="text" 
 										value={theme}
 										onChange={(e) => updateTheme(index, e.target.value)}
 										placeholder={`경유지 ${index + 1} 테마 (예: 카페, 맛집, 맥주 등)`}
-										style={{ flex: 1, padding: '10px' }}
+										className="theme-input"
 										onKeyPress={(e) => e.key === 'Enter' && searchStoresByTheme()}
 									/>
 									{searchThemes.length > 1 && (
 										<button
 											onClick={() => removeTheme(index)}
-											style={{
-												padding: '10px 15px',
-												backgroundColor: '#f44336',
-												color: 'white',
-												border: 'none',
-												borderRadius: '5px',
-												cursor: 'pointer'
-											}}
+											className="remove-theme-btn"
 										>
 											삭제
 										</button>
@@ -1073,15 +1105,7 @@ export default function App() {
 							))}
 							<button
 								onClick={addTheme}
-								style={{
-									padding: '8px 15px',
-									backgroundColor: '#2196F3',
-									color: 'white',
-									border: 'none',
-									borderRadius: '5px',
-									cursor: 'pointer',
-									marginTop: '5px'
-								}}
+								className="add-theme-btn"
 							>
 								+ 테마 추가
 							</button>
@@ -1089,15 +1113,7 @@ export default function App() {
 						<button
 							onClick={searchStoresByTheme}
 							disabled={!lat || !lng || searchThemes.every(t => !t.trim()) || searchLoading}
-							style={{
-								padding: '10px 20px',
-								backgroundColor: '#4CAF50',
-								color: 'white',
-								border: 'none',
-								borderRadius: '5px',
-								cursor: 'pointer',
-								width: '100%'
-							}}
+							className="search-btn"
 						>
 							{searchLoading ? '검색중...' : '검색'}
 						</button>
@@ -1110,54 +1126,46 @@ export default function App() {
 						<div className="store-candidates" style={{ marginTop: '20px' }}>
 							{storeCandidates.length > 0 ? (
 								<>
-									<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 가게 (3개)</h3>
+									<h3 className="candidates-title">추천 가게 (3개)</h3>
 									{storeCandidates.map((store, index) => (
 								<div
 									key={store.store_id}
 									onClick={() => setSelectedStore(store)}
-									style={{
-										border: selectedStore?.store_id === store.store_id ? '3px solid #4CAF50' : '1px solid #ddd',
-										borderRadius: '8px',
-										padding: '15px',
-										marginBottom: '15px',
-										cursor: 'pointer',
-										backgroundColor: selectedStore?.store_id === store.store_id ? '#f0f9f0' : 'white',
-										transition: 'all 0.2s'
-									}}
+									className={`store-card ${selectedStore?.store_id === store.store_id ? 'selected' : ''}`}
 								>
-									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px', color: '#333' }}>
+									<div className="store-name">
 										{index + 1}. {store.name}
 									</div>
-									<div style={{ color: '#666', marginBottom: '5px' }}>
+									<div className="store-address">
 										📍 {store.address}
 									</div>
 									{store.phone && (
-										<div style={{ color: '#666', marginBottom: '5px' }}>
+										<div className="store-phone">
 											📞 {store.phone}
 										</div>
 									)}
 									<div style={{ marginTop: '10px' }}>
 										{(!store.summary_status || store.summary_status === 'processing') && !store.review_summary ? (
-											<div style={{ color: '#ff9800', fontSize: '14px', fontWeight: '500' }}>
+											<div className="review-processing">
 												⏳ AI가 리뷰를 요약 중입니다...
 											</div>
 										) : store.review_summary ? (
-											<div style={{ fontSize: '14px' }}>
-												<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+											<div className="review-summary">
+												<div className="review-complete">
 													✓ 리뷰 요약 완료
 												</div>
 												{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
-													<div style={{ color: '#666', marginBottom: '3px' }}>
+													<div className="review-item">
 														메뉴: {store.review_summary.main_menu.join(', ')}
 													</div>
 												)}
 												{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
-													<div style={{ color: '#666', marginBottom: '3px' }}>
+													<div className="review-item">
 														분위기: {store.review_summary.atmosphere.join(', ')}
 													</div>
 												)}
 												{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
-													<div style={{ color: '#666' }}>
+													<div className="review-item">
 														추천: {store.review_summary.recommended_for.join(', ')}
 													</div>
 												)}
@@ -1168,20 +1176,11 @@ export default function App() {
 									))}
 									
 									{selectedStore && (
-										<div style={{ marginTop: '20px', textAlign: 'center' }}>
+										<div className="confirm-container">
 											<button
 												onClick={confirmStore}
 												disabled={searchLoading}
-												style={{
-													padding: '12px 30px',
-													backgroundColor: '#2196F3',
-													color: 'white',
-													border: 'none',
-													borderRadius: '5px',
-													cursor: 'pointer',
-													fontSize: '16px',
-													fontWeight: 'bold'
-												}}
+												className="confirm-btn"
 											>
 												{searchLoading ? '확정 중...' : '확정'}
 											</button>
@@ -1201,59 +1200,51 @@ export default function App() {
 						<div className="route-candidates" style={{ marginTop: '20px' }}>
 							{routeCandidates.length > 0 ? (
 								<>
-									<h3 style={{ marginBottom: '15px', color: '#333' }}>추천 경로 (최대 3개)</h3>
+									<h3 className="candidates-title">추천 경로 (최대 3개)</h3>
 									{routeCandidates.map((route, routeIndex) => (
 								<div
 									key={route.route_id}
 									onClick={() => setSelectedRoute(route)}
-									style={{
-										border: selectedRoute?.route_id === route.route_id ? '3px solid #4CAF50' : '1px solid #ddd',
-										borderRadius: '8px',
-										padding: '15px',
-										marginBottom: '15px',
-										cursor: 'pointer',
-										backgroundColor: selectedRoute?.route_id === route.route_id ? '#f0f9f0' : 'white',
-										transition: 'all 0.2s'
-									}}
+									className={`route-card ${selectedRoute?.route_id === route.route_id ? 'selected' : ''}`}
 								>
-									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '10px', color: '#333' }}>
+									<div className="route-title">
 										경로 {routeIndex + 1} (총 거리: {route.total_distance_km}km)
 									</div>
 									{route.stores && route.stores.map((store, storeIndex) => (
-										<div key={store.store_id} style={{ marginBottom: '10px', paddingLeft: '15px', borderLeft: '3px solid #4CAF50' }}>
-											<div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '5px', color: '#333' }}>
+										<div key={store.store_id} className="route-store-item">
+											<div className="store-name">
 												{storeIndex + 1}. {store.name}
 											</div>
-											<div style={{ color: '#666', marginBottom: '3px' }}>
+											<div className="store-address">
 												📍 {store.address}
 											</div>
 											{store.phone && (
-												<div style={{ color: '#666', marginBottom: '3px' }}>
+												<div className="store-phone">
 													📞 {store.phone}
 												</div>
 											)}
-											<div style={{ marginTop: '10px' }}>
+											<div className="review-section">
 												{(!store.summary_status || store.summary_status === 'processing') && !store.review_summary ? (
-													<div style={{ color: '#ff9800', fontSize: '14px', fontWeight: '500' }}>
+													<div className="review-processing">
 														⏳ AI가 리뷰를 요약 중입니다...
 													</div>
 												) : store.review_summary ? (
-													<div style={{ fontSize: '14px' }}>
-														<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+													<div className="review-summary">
+														<div className="review-complete">
 															✓ 리뷰 요약 완료
 														</div>
 														{store.review_summary.main_menu && store.review_summary.main_menu.length > 0 && (
-															<div style={{ color: '#666', marginBottom: '3px' }}>
+															<div className="review-item">
 																메뉴: {store.review_summary.main_menu.join(', ')}
 															</div>
 														)}
 														{store.review_summary.atmosphere && store.review_summary.atmosphere.length > 0 && (
-															<div style={{ color: '#666', marginBottom: '3px' }}>
+															<div className="review-item">
 																분위기: {store.review_summary.atmosphere.join(', ')}
 															</div>
 														)}
 														{store.review_summary.recommended_for && store.review_summary.recommended_for.length > 0 && (
-															<div style={{ color: '#666' }}>
+															<div className="review-item">
 																추천: {store.review_summary.recommended_for.join(', ')}
 															</div>
 														)}
@@ -1266,20 +1257,11 @@ export default function App() {
 							))}
 							
 									{selectedRoute && (
-										<div style={{ marginTop: '20px', textAlign: 'center' }}>
+										<div className="confirm-container">
 											<button
 												onClick={confirmRoute}
 												disabled={searchLoading}
-												style={{
-													padding: '12px 30px',
-													backgroundColor: '#2196F3',
-													color: 'white',
-													border: 'none',
-													borderRadius: '5px',
-													cursor: 'pointer',
-													fontSize: '16px',
-													fontWeight: 'bold'
-												}}
+												className="confirm-btn"
 											>
 												{searchLoading ? '확정 중...' : '경로 확정'}
 											</button>
@@ -1303,23 +1285,23 @@ export default function App() {
 								실제 총 거리: <strong>{routeResult.actual_total_distance_km}km</strong> ({routeResult.is_round_trip ? '왕복' : '편도'})
 							</div>
 							{routeResult.waypoints && routeResult.waypoints.length > 0 && (
-								<div style={{ marginTop: '15px' }}>
+								<div className="route-waypoints-list">
 									{routeResult.waypoints.map((waypoint, index) => (
-										<div key={waypoint.order} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
-											<div style={{ fontWeight: 'bold' }}>{index + 1}. {waypoint.place_name}</div>
+										<div key={waypoint.order} className="route-waypoint-item">
+											<div className="waypoint-result-title">{index + 1}. {waypoint.place_name}</div>
 											{waypoint.review_summary ? (
-												<div style={{ fontSize: '13px', color: '#666', marginTop: '5px' }}>
-													<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '3px', fontSize: '12px' }}>
+												<div className="route-review-summary">
+													<div className="review-complete">
 														✓ 리뷰 요약 완료
 													</div>
 													{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
-														<div>메뉴: {waypoint.review_summary.main_menu.join(', ')}</div>
+														<div className="review-item">메뉴: {waypoint.review_summary.main_menu.join(', ')}</div>
 													)}
 													{waypoint.review_summary.atmosphere && waypoint.review_summary.atmosphere.length > 0 && (
-														<div>분위기: {waypoint.review_summary.atmosphere.join(', ')}</div>
+														<div className="review-item">분위기: {waypoint.review_summary.atmosphere.join(', ')}</div>
 													)}
 													{waypoint.review_summary.recommended_for && waypoint.review_summary.recommended_for.length > 0 && (
-														<div>추천: {waypoint.review_summary.recommended_for.join(', ')}</div>
+														<div className="review-item">추천: {waypoint.review_summary.recommended_for.join(', ')}</div>
 													)}
 												</div>
 											) : null}
@@ -1332,16 +1314,6 @@ export default function App() {
 								target="_blank" 
 								rel="noreferrer"
 								className="route-link"
-								style={{
-									display: 'inline-block',
-									marginTop: '15px',
-									padding: '12px 30px',
-									backgroundColor: '#4CAF50',
-									color: 'white',
-									textDecoration: 'none',
-									borderRadius: '5px',
-									fontWeight: 'bold'
-								}}
 							>
 								🗺️ 경로 확인하기
 							</a>
@@ -1367,48 +1339,41 @@ export default function App() {
 								{result.waypoints.map((waypoint, index) => (
 									<div 
 										key={waypoint.order} 
-										style={{
-											border: '1px solid #ddd',
-											borderRadius: '8px',
-											padding: '15px',
-											marginBottom: '15px',
-											backgroundColor: 'white',
-											transition: 'all 0.2s'
-										}}
+										className="waypoint-result"
 									>
-									<div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '8px', color: '#333' }}>
+									<div className="waypoint-result-title">
 										{waypoint.order}. {waypoint.place_name}
 									</div>
-									<div style={{ color: '#666', marginBottom: '5px' }}>
+									<div className="waypoint-result-address">
 										📍 {waypoint.road_address_name || waypoint.address_name || ''}
 									</div>
 									{waypoint.phone && (
-										<div style={{ color: '#666', marginBottom: '5px' }}>
+										<div className="waypoint-result-phone">
 											📞 {waypoint.phone}
 										</div>
 									)}
-									<div style={{ marginTop: '10px' }}>
+									<div className="review-section">
 										{!waypoint.review_summary ? (
-											<div style={{ color: '#ff9800', fontSize: '14px' }}>
+											<div className="review-processing">
 												⏳ AI가 리뷰를 요약 중입니다.
 											</div>
 										) : waypoint.review_summary ? (
-											<div style={{ fontSize: '14px' }}>
-												<div style={{ color: '#4CAF50', fontWeight: 'bold', marginBottom: '5px' }}>
+											<div className="review-summary">
+												<div className="review-complete">
 													✓ 리뷰 요약 완료
 												</div>
 												{waypoint.review_summary.main_menu && waypoint.review_summary.main_menu.length > 0 && (
-													<div style={{ color: '#666', marginBottom: '3px' }}>
+													<div className="review-item">
 														메뉴: {waypoint.review_summary.main_menu.join(', ')}
 													</div>
 												)}
 												{waypoint.review_summary.atmosphere && waypoint.review_summary.atmosphere.length > 0 && (
-													<div style={{ color: '#666', marginBottom: '3px' }}>
+													<div className="review-item">
 														분위기: {waypoint.review_summary.atmosphere.join(', ')}
 													</div>
 												)}
 												{waypoint.review_summary.recommended_for && waypoint.review_summary.recommended_for.length > 0 && (
-													<div style={{ color: '#666' }}>
+													<div className="review-item">
 														추천: {waypoint.review_summary.recommended_for.join(', ')}
 													</div>
 												)}
@@ -1423,7 +1388,7 @@ export default function App() {
 								</div>
 							</div>
 						) : (
-							<div style={{ color: '#000' }}>
+							<div className="no-results">
 								경유지를 찾을 수 없습니다. 다른 키워드나 거리를 시도해보세요.
 							</div>
 						)}

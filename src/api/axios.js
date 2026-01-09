@@ -45,7 +45,7 @@ api.interceptors.response.use(
       try {
         // Try to refresh access token
         const refreshResponse = await axios.post(
-          `${BACKEND_URL}/auth/refresh`,
+          `${BACKEND_URL}/api/v1/auth/refresh`,
           {},
           {
             withCredentials: true, // Include refresh token cookie
