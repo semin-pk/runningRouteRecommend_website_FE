@@ -955,183 +955,186 @@ export default function App() {
 
 	return (
 		<div className="app-container page-bg">
-			<header className="app-header" style={{ position: 'relative' }}>
-				<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
-				<h2 className="app-title">러닝 코스 랜덤 추천</h2>
-				<div style={{ 
-					position: 'absolute', 
-					right: '20px', 
-					top: '50%', 
-					transform: 'translateY(-50%)',
-					display: 'flex',
-					alignItems: 'center',
-					gap: '10px'
-				}}>
-					{isAuthenticated && userInfo && (
-						<span style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.7)' }}>
-							{userInfo.nickname || userInfo.email}님
-						</span>
-					)}
-					{isAuthenticated ? (
-						<button
-							onClick={handleLogout}
-							className="header-btn logout-btn"
-						>
-							로그아웃
-						</button>
-					) : (
-						<button
-							onClick={() => navigate('/login')}
-							className="header-btn login-btn"
-						>
-							로그인
-						</button>
-					)}
+			<header className="app-header">
+				<div className="header-top">
+					<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
+					<div className="header-actions">
+						{isAuthenticated && userInfo && (
+							<span className="user-info">
+								{userInfo.nickname || userInfo.email}님
+							</span>
+						)}
+						{isAuthenticated ? (
+							<button
+								onClick={handleLogout}
+								className="header-btn logout-btn"
+							>
+								로그아웃
+							</button>
+						) : (
+							<button
+								onClick={() => navigate('/login')}
+								className="header-btn login-btn"
+							>
+								로그인
+							</button>
+						)}
+					</div>
+				</div>
+				<div className="hero-title-strip">
+					<h2 className="app-title">러닝 코스 랜덤 추천</h2>
 				</div>
 			</header>
 			
-			{/* Hero 영역 */}
-			<div className="hero-section">
-				<h1 className="hero-title">오늘은 어떤 러닝을 하고 싶나요?</h1>
-				<div className="hero-message">
-					{heroMessage}
+			{/* 콘텐츠 패널 */}
+			<div className="content-panel">
+				{/* Hero 영역 */}
+				<div className="hero-section">
+					<h1 className="hero-title">오늘은 어떤 러닝을 하고 싶나요?</h1>
+					<div className="hero-message">
+						{heroMessage}
+					</div>
 				</div>
-			</div>
-			
-			{/* 안전 러닝 배너 (rainy/snowy일 때만) */}
-			{(currentWeatherGroup === 'rainy' || currentWeatherGroup === 'snowy') && (
-				<div className="safety-banner">
-					<div className="safety-banner-content">
-						<span className="safety-icon">
-							{currentWeatherGroup === 'rainy' ? '☔' : '❄️'}
-						</span>
-						<span className="safety-message">
-							{currentWeatherGroup === 'rainy' 
-								? '노면이 미끄러울 수 있어요. 짧고 안전하게 달려요'
-								: '미끄럼 주의! 평지 위주로 짧게 추천해요'}
-						</span>
-						<button
-							className="safety-toggle-btn"
-							onClick={() => setSafetyModeEnabled(!safetyModeEnabled)}
-							aria-label="안전 모드 토글"
+				
+				{/* 안전 러닝 배너 (rainy/snowy일 때만) */}
+				{(currentWeatherGroup === 'rainy' || currentWeatherGroup === 'snowy') && (
+					<div className="safety-banner">
+						<div className="safety-banner-content">
+							<span className="safety-icon">
+								{currentWeatherGroup === 'rainy' ? '☔' : '❄️'}
+							</span>
+							<span className="safety-message">
+								{currentWeatherGroup === 'rainy' 
+									? '노면이 미끄러울 수 있어요. 짧고 안전하게 달려요'
+									: '미끄럼 주의! 평지 위주로 짧게 추천해요'}
+							</span>
+							<button
+								className={`safety-toggle-btn ${safetyModeEnabled ? 'active' : ''}`}
+								onClick={() => setSafetyModeEnabled(!safetyModeEnabled)}
+								aria-label="안전 모드 토글"
+								aria-pressed={safetyModeEnabled}
+							>
+								{safetyModeEnabled ? '안전 모드 ON' : '안전 모드 OFF'}
+							</button>
+						</div>
+						{safetyModeEnabled && (
+							<div className="safety-guide">
+								권장 거리: 3~5km | 평지 위주 코스 추천
+							</div>
+						)}
+					</div>
+				)}
+				
+				{/* 러닝 옵션 섹션 */}
+				<div className="running-options-section">
+					<div className="running-options-grid">
+						<button 
+							className="running-option-btn"
+							onClick={() => {
+								setWaypoints([{ theme_keyword: '', order: 1 }])
+								setTotalDistanceKm(5)
+							}}
 						>
-							{safetyModeEnabled ? '안전 모드 ON' : '안전 모드 OFF'}
+							<span className="option-icon">🏃</span>
+							<span className="option-text">가볍게 달리기</span>
+						</button>
+						<button 
+							className="running-option-btn"
+							onClick={() => {
+								setWaypoints([{ theme_keyword: '카페', order: 1 }])
+								setTotalDistanceKm(6.8)
+							}}
+						>
+							<span className="option-icon">☕</span>
+							<span className="option-text">카페 들러가는 런닝</span>
+						</button>
+						<button 
+							className="running-option-btn"
+							onClick={() => {
+								setWaypoints([{ theme_keyword: '야경', order: 1 }])
+								setTotalDistanceKm(7.2)
+							}}
+						>
+							<span className="option-icon">🌙</span>
+							<span className="option-text">야간 감성 런닝</span>
+						</button>
+						<button 
+							className="running-option-btn"
+							onClick={() => {
+								setWaypoints([{ theme_keyword: '맥주', order: 1 }])
+								setTotalDistanceKm(6)
+							}}
+						>
+							<span className="option-icon">🍺</span>
+							<span className="option-text">러닝 후 한 잔</span>
 						</button>
 					</div>
-					{safetyModeEnabled && (
-						<div className="safety-guide">
-							권장 거리: 3~5km | 평지 위주 코스 추천
+				</div>
+
+				{/* 추천 러닝 코스 섹션 */}
+				<div className="recommended-courses-section">
+					<h3 className="section-title">추천 러닝 코스는 어떠세요?</h3>
+					<div className="courses-carousel">
+						<div className="course-card">
+							<div className="course-icon">☕</div>
+							<div className="course-title">연남 커미런</div>
+							<div className="course-info">약 6.8km · 러닝 후 들러기 좋은 카페</div>
+							<div className="course-map-preview"></div>
 						</div>
-					)}
-				</div>
-			)}
-			
-			{/* 러닝 옵션 섹션 */}
-			<div className="running-options-section">
-				<div className="running-options-grid">
-					<button 
-						className="running-option-btn"
-						onClick={() => {
-							setWaypoints([{ theme_keyword: '', order: 1 }])
-							setTotalDistanceKm(5)
-						}}
-					>
-						<span className="option-icon">🏃</span>
-						<span className="option-text">가볍게 달리기</span>
-					</button>
-					<button 
-						className="running-option-btn"
-						onClick={() => {
-							setWaypoints([{ theme_keyword: '카페', order: 1 }])
-							setTotalDistanceKm(6.8)
-						}}
-					>
-						<span className="option-icon">☕</span>
-						<span className="option-text">카페 들러가는 런닝</span>
-					</button>
-					<button 
-						className="running-option-btn"
-						onClick={() => {
-							setWaypoints([{ theme_keyword: '야경', order: 1 }])
-							setTotalDistanceKm(7.2)
-						}}
-					>
-						<span className="option-icon">🌙</span>
-						<span className="option-text">야간 감성 런닝</span>
-					</button>
-					<button 
-						className="running-option-btn"
-						onClick={() => {
-							setWaypoints([{ theme_keyword: '맥주', order: 1 }])
-							setTotalDistanceKm(6)
-						}}
-					>
-						<span className="option-icon">🍺</span>
-						<span className="option-text">러닝 후 한 잔</span>
-					</button>
-				</div>
-			</div>
-
-			{/* 추천 러닝 코스 섹션 */}
-			<div className="recommended-courses-section">
-				<h3 className="section-title">추천 러닝 코스는 어떠세요?</h3>
-				<div className="courses-carousel">
-					<div className="course-card">
-						<div className="course-icon">☕</div>
-						<div className="course-title">연남 커미런</div>
-						<div className="course-info">약 6.8km · 러닝 후 들러기 좋은 카페</div>
-						<div className="course-map-preview"></div>
-					</div>
-					<div className="course-card">
-						<div className="course-icon">🌙</div>
-						<div className="course-title">한강 야간 런닝</div>
-						<div className="course-info">약 7.2km · 야간 뉴 코스</div>
-						<div className="course-time">35-45분</div>
-					</div>
-					<div className="course-card">
-						<div className="course-icon">🏃</div>
-						<div className="course-title">가벼운 런닝</div>
-						<div className="course-info">약 5km · 초보자 추천</div>
-						<div className="course-map-preview"></div>
+						<div className="course-card">
+							<div className="course-icon">🌙</div>
+							<div className="course-title">한강 야간 런닝</div>
+							<div className="course-info">약 7.2km · 야간 뉴 코스</div>
+							<div className="course-time">35-45분</div>
+						</div>
+						<div className="course-card">
+							<div className="course-icon">🏃</div>
+							<div className="course-title">가벼운 런닝</div>
+							<div className="course-info">약 5km · 초보자 추천</div>
+							<div className="course-map-preview"></div>
+						</div>
 					</div>
 				</div>
 			</div>
 
+			{/* 지도는 패널 바깥 */}
 			<MapPicker onPick={onPick} onSelectLocation={handleSelectLocation} />
 			
-			{/* 모드 선택 탭 */}
-			<div className="mode-selector">
-				<button
-					className={`mode-btn ${mode === 'quick' ? 'active' : ''}`}
-					onClick={() => {
-						setMode('quick')
-						setStoreCandidates(null)
-						setRouteCandidates(null)
-						setSelectedStore(null)
-						setSelectedRoute(null)
-						setRouteResult(null)
-					}}
-				>
-					빠른 검색
-				</button>
-				<button
-					className={`mode-btn ${mode === 'detail' ? 'active' : ''}`}
-					onClick={() => {
-						setMode('detail')
-						setStoreCandidates(null)
-						setRouteCandidates(null)
-						setSelectedStore(null)
-						setSelectedRoute(null)
-						setRouteResult(null)
-					}}
-				>
-					상세 검색
-				</button>
-			</div>
-			
-			{/* 빠른 검색 모드 */}
-			{mode === 'quick' && (
-				<div className="form-container">
+			{/* 폼 패널 */}
+			<div className="form-panel">
+				{/* 모드 선택 탭 */}
+				<div className="mode-selector">
+					<button
+						className={`mode-btn ${mode === 'quick' ? 'active' : ''}`}
+						onClick={() => {
+							setMode('quick')
+							setStoreCandidates(null)
+							setRouteCandidates(null)
+							setSelectedStore(null)
+							setSelectedRoute(null)
+							setRouteResult(null)
+						}}
+					>
+						빠른 검색
+					</button>
+					<button
+						className={`mode-btn ${mode === 'detail' ? 'active' : ''}`}
+						onClick={() => {
+							setMode('detail')
+							setStoreCandidates(null)
+							setRouteCandidates(null)
+							setSelectedStore(null)
+							setSelectedRoute(null)
+							setRouteResult(null)
+						}}
+					>
+						상세 검색
+					</button>
+				</div>
+				
+				{/* 빠른 검색 모드 */}
+				{mode === 'quick' && (
+					<div className="form-container">
 					<div className="input-grid">
 						<div className="input-group">
 							<label>총 러닝 거리 (km)</label>
@@ -1262,10 +1265,10 @@ export default function App() {
 						</div>
 					</div>
 					
-					<div className="input-group" style={{ marginTop: '20px' }}>
+					<div className="input-group theme-search-group">
 						<label>테마 검색어 (경유지별)</label>
-						<div style={{ marginBottom: '10px' }}>
-									{searchThemes.map((theme, index) => (
+						<div className="theme-inputs-container">
+							{searchThemes.map((theme, index) => (
 								<div key={index} className="theme-input-row">
 									<input 
 										type="text" 
@@ -1370,7 +1373,7 @@ export default function App() {
 									)}
 								</>
 							) : (
-								<div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+								<div className="no-results">
 									검색 결과가 없습니다. 다른 테마나 위치로 검색해보세요.
 								</div>
 							)}
@@ -1451,7 +1454,7 @@ export default function App() {
 									)}
 								</>
 							) : (
-								<div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+								<div className="no-results">
 									검색 결과가 없습니다. 다른 테마나 위치로 검색해보세요.
 								</div>
 							)}
@@ -1503,6 +1506,7 @@ export default function App() {
 					)}
 				</div>
 			)}
+			</div>
 
 			{error && <div className="error-message">{error}</div>}
 

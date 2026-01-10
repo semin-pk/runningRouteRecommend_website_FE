@@ -35,6 +35,16 @@
   --overlay: rgba(255, 255, 255, 0.10);
   --text: rgba(10, 20, 40, 0.92);
   --text-muted: rgba(10, 20, 40, 0.60);
+  
+  /* 패널/폼 전용 토큰 (기본값) */
+  --panel-bg: rgba(255, 255, 255, 0.83);
+  --panel-border: rgba(255, 255, 255, 0.35);
+  --panel-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.6);
+  --input-border: rgba(0, 0, 0, 0.1);
+  --text-strong: rgba(10, 20, 40, 0.95);
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.15);
 }
 
 a {
@@ -131,23 +141,19 @@ button:focus-visible {
   z-index: 2;
 }
 
-/* Hero 영역 스타일 */
-.hero-section {
+/* Hero 영역 스타일 (패널 내부에서) */
+.content-panel .hero-section {
   text-align: center;
-  margin-bottom: 40px;
-  padding: 32px 24px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
-/* 밝은 테마 Hero 영역 */
-:root[data-theme="morning_clear"] .hero-section,
-:root[data-theme="day_clear"] .hero-section {
-  background: rgba(255, 255, 255, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.content-panel .hero-section:first-child {
+  margin-top: 0;
 }
 
 /* Hero 제목 */
@@ -155,7 +161,7 @@ button:focus-visible {
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 16px 0;
-  color: var(--text);
+  color: var(--text-strong);
   line-height: 1.3;
 }
 
@@ -165,15 +171,19 @@ button:focus-visible {
   }
 }
 
-@media (max-width: 479px) {
+/* 모바일 타이포 최적화 */
+@media (max-width: 480px) {
   .hero-title {
     font-size: 24px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+    line-height: 1.3;
   }
-  
-  .hero-section {
-    padding: 24px 16px;
-    margin-bottom: 32px;
+}
+
+@media (max-width: 390px) {
+  .hero-title {
+    font-size: 22px;
+    margin-bottom: 12px;
   }
 }
 
@@ -190,7 +200,15 @@ button:focus-visible {
   transition: opacity 500ms ease-in-out;
 }
 
-@media (max-width: 479px) {
+@media (max-width: 480px) {
+  .hero-message {
+    font-size: 15px;
+    padding: 12px 18px;
+    line-height: 1.6;
+  }
+}
+
+@media (max-width: 390px) {
   .hero-message {
     font-size: 14px;
     padding: 10px 16px;
@@ -214,6 +232,16 @@ button:focus-visible {
   --overlay: rgba(6, 12, 24, 0.55);
   --text: rgba(255, 255, 255, 0.92);
   --text-muted: rgba(255, 255, 255, 0.70);
+  
+  /* 다크 테마: 기존 유지 */
+  --panel-bg: rgba(255, 255, 255, 0.1);
+  --panel-border: rgba(255, 255, 255, 0.2);
+  --panel-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --text-strong: rgba(255, 255, 255, 0.95);
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.2);
 }
 
 :root[data-theme="evening_clear"] {
@@ -222,21 +250,51 @@ button:focus-visible {
   --overlay: rgba(20, 16, 40, 0.45);
   --text: rgba(255, 255, 255, 0.94);
   --text-muted: rgba(255, 255, 255, 0.72);
+  
+  /* 다크 테마: 기존 유지 */
+  --panel-bg: rgba(255, 255, 255, 0.1);
+  --panel-border: rgba(255, 255, 255, 0.2);
+  --panel-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --text-strong: rgba(255, 255, 255, 0.96);
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.2);
 }
 
 :root[data-theme="morning_clear"] {
   --bg: radial-gradient(900px circle at 30% 15%, #DFF4FF 0%, transparent 60%),
         linear-gradient(180deg, #B9E7FF 0%, #EAF7FF 50%, #F7FBFF 100%);
   --overlay: rgba(255, 255, 255, 0.15);
-  --text: rgba(10, 20, 40, 0.90);
-  --text-muted: rgba(10, 20, 40, 0.60);
+  --text: rgba(15, 23, 42, 0.90);
+  --text-muted: rgba(100, 116, 139, 0.75);
+  
+  /* 밝은 테마: 대비 강화 */
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-border: rgba(15, 23, 42, 0.12);
+  --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --input-border: rgba(15, 23, 42, 0.18);
+  --text-strong: #0F172A;
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.2);
 }
 
 :root[data-theme="day_clear"] {
   --bg: linear-gradient(180deg, #F6FAFF 0%, #EEF5FF 55%, #F8FAFF 100%);
   --overlay: rgba(255, 255, 255, 0.10);
-  --text: rgba(10, 20, 40, 0.92);
-  --text-muted: rgba(10, 20, 40, 0.60);
+  --text: rgba(31, 41, 55, 0.95);
+  --text-muted: rgba(100, 116, 139, 0.80);
+  
+  /* 밝은 테마: 대비 강화 */
+  --panel-bg: rgba(255, 255, 255, 0.94);
+  --panel-border: rgba(15, 23, 42, 0.14);
+  --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.98);
+  --input-border: rgba(15, 23, 42, 0.20);
+  --text-strong: #0F172A;
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.25);
 }
 
 :root[data-theme="rainy"] {
@@ -245,4 +303,14 @@ button:focus-visible {
   --overlay: rgba(7, 12, 20, 0.60);
   --text: rgba(255, 255, 255, 0.92);
   --text-muted: rgba(255, 255, 255, 0.70);
+  
+  /* 다크 테마: 기존 유지 */
+  --panel-bg: rgba(255, 255, 255, 0.1);
+  --panel-border: rgba(255, 255, 255, 0.2);
+  --panel-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --text-strong: rgba(255, 255, 255, 0.95);
+  --input-focus-border: #4CAF50;
+  --input-focus-shadow: rgba(76, 175, 80, 0.2);
 }
