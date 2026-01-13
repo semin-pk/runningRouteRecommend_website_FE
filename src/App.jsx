@@ -5,6 +5,7 @@ import { getBackendUrl, getBackendUrlWithPath } from './utils/api.js'
 import { fetchCurrentWeather } from './services/weather'
 import { mapWeatherCodeToGroup, decideThemeId, applyThemeId, getHeroMessage } from './utils/theme'
 import { getCachedWeather, setCachedWeather } from './utils/weatherCache'
+import { fetchRouteTabs, fetchRoutesByKeyword } from './api/routes.js'
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
 const BACKEND_URL = getBackendUrl()
@@ -212,6 +213,7 @@ export default function App() {
 	const [selectedRoute, setSelectedRoute] = useState(null)
 	const [confirmedStore, setConfirmedStore] = useState(null)
 	const [routeResult, setRouteResult] = useState(null)
+	const [confirmedRouteId, setConfirmedRouteId] = useState(null) // 확정된 route_id
 	const [searchError, setSearchError] = useState(null)
 	const [searchType, setSearchType] = useState(null) // 'single' or 'route'
 
@@ -224,6 +226,18 @@ export default function App() {
 	
 	// 안전 모드 토글 상태
 	const [safetyModeEnabled, setSafetyModeEnabled] = useState(false)
+
+	// 추천 코스 탭 상태
+	const [tabs, setTabs] = useState([])
+	const [selectedTab, setSelectedTab] = useState('__ALL__') // 기본값: 전체
+	const [routes, setRoutes] = useState([])
+	const [selectedRecommendedRoute, setSelectedRecommendedRoute] = useState(null) // 추천 경로 탭에서 선택한 경로
+	const [selectedRouteStoresWithStatus, setSelectedRouteStoresWithStatus] = useState([]) // 선택한 경로의 stores (summary_status 포함)
+	const [confirmEnabled, setConfirmEnabled] = useState(false) // 확정 버튼 활성화 여부
+	const [loadingTabs, setLoadingTabs] = useState(false)
+	const [loadingRoutes, setLoadingRoutes] = useState(false)
+	const [errorTabs, setErrorTabs] = useState(null)
+	const [errorRoutes, setErrorRoutes] = useState(null)
 
 	// AbortController ref (이전 요청 취소용)
 	const abortControllerRef = useRef(null)
@@ -586,10 +600,12 @@ export default function App() {
 		}
 	}
 	
-	// 가게 확정 함수 (단일 테마일 때)
-	const confirmStore = async () => {
-		if (!selectedStore || !lat || !lng) {
-			setSearchError('가게와 위치를 선택해주세요.')
+	// 공통 경로 확정 함수 (모든 플로우에서 사용)
+	const confirmRoute = async (source = 'route') => {
+		// source: 'quick' (빠른검색), 'single' (상세검색 단일 가게), 'route' (상세검색 경로), 'recommended' (추천 경로 탭)
+		
+		if (!lat || !lng) {
+			setSearchError('위치를 선택해주세요.')
 			return
 		}
 		
@@ -598,68 +614,96 @@ export default function App() {
 			return
 		}
 		
-		setSearchLoading(true)
-		setSearchError(null)
+		// stores 배열 생성
+		let stores = []
+		let totalDistance = totalDistanceKm
+		let estimatedTime = null
+		let isRoundTripValue = isRoundTrip
 		
-		try {
-			const requestBody = {
+		if (source === 'quick') {
+			// 빠른검색: result.waypoints에서 store_id와 order 추출
+			if (!result || !result.waypoints || result.waypoints.length === 0) {
+				setSearchError('경유지를 선택해주세요.')
+				return
+			}
+			stores = result.waypoints
+				.filter(wp => wp.store_id) // store_id가 있는 경우만
+				.map(wp => ({
+					store_id: wp.store_id,
+					order: wp.order
+				}))
+			if (stores.length === 0) {
+				setSearchError('경유지에 가게 정보가 없습니다.')
+				return
+			}
+			totalDistance = result.total_distance_km || totalDistanceKm
+		} else if (source === 'single') {
+			// 상세검색 단일 가게: selectedStore.store_id 사용
+			if (!selectedStore || !selectedStore.store_id) {
+				setSearchError('가게를 선택해주세요.')
+				return
+			}
+			stores = [{
 				store_id: selectedStore.store_id,
-				start_lat: lat,
-				start_lng: lng,
-				total_distance_km: totalDistanceKm,
-				is_round_trip: isRoundTrip
+				order: 1
+			}]
+		} else if (source === 'recommended') {
+			// 추천 경로 탭: selectedRecommendedRoute 사용
+			if (!selectedRecommendedRoute || !selectedRecommendedRoute.stores || selectedRecommendedRoute.stores.length === 0) {
+				setSearchError('경로를 선택해주세요.')
+				return
 			}
-			
-			const r = await fetch(getBackendUrlWithPath('api/stores/confirm'), {
-				method: 'POST',
-				headers: { 
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(requestBody),
-				mode: 'cors',
-				credentials: 'omit'
-			})
-			
-			if (!r.ok) {
-				const errorText = await r.text()
-				throw new Error(errorText)
+			stores = selectedRecommendedRoute.stores.map((s, index) => ({
+				store_id: s.store_id,
+				order: s.order || (index + 1)
+			}))
+			totalDistance = selectedRecommendedRoute.total_distance_km || totalDistanceKm
+			estimatedTime = selectedRecommendedRoute.estimated_time_min || null
+			isRoundTripValue = selectedRecommendedRoute.is_roundtrip !== undefined ? selectedRecommendedRoute.is_roundtrip : isRoundTrip
+		} else if (source === 'route') {
+			// 상세검색 경로: selectedRoute.stores 사용
+			if (!selectedRoute || !selectedRoute.stores || selectedRoute.stores.length === 0) {
+				setSearchError('경로를 선택해주세요.')
+				return
 			}
-			
-			const data = await r.json()
-			setConfirmedStore(selectedStore)
-			setRouteResult(data)
-		} catch (e) {
-			const errorText = await e.text ? await e.text() : String(e)
-			setSearchError(errorText)
-		} finally {
-			setSearchLoading(false)
-		}
-	}
-	
-	// 경로 확정 함수 (경유지 2개 이상일 때)
-	const confirmRoute = async () => {
-		if (!selectedRoute || !lat || !lng) {
-			setSearchError('경로와 위치를 선택해주세요.')
-			return
-		}
-		
-		if (!BACKEND_URL) {
-			setSearchError('백엔드 URL이 설정되지 않았습니다.')
-			return
+			stores = selectedRoute.stores
+				.filter(s => s.store_id) // store_id가 있는 경우만
+				.map((s, index) => ({
+					store_id: s.store_id,
+					order: s.order || (index + 1)
+				}))
+			if (stores.length === 0) {
+				setSearchError('경로에 가게 정보가 없습니다.')
+				return
+			}
+			totalDistance = selectedRoute.total_distance_km || totalDistanceKm
 		}
 		
 		setSearchLoading(true)
 		setSearchError(null)
 		
 		try {
-			const storeIds = selectedRoute.stores.map(s => s.store_id)
+			// user_id: 로그인된 경우 userInfo에서, 아니면 임시 값 (백엔드에서 optional 처리됨)
+			const userId = userInfo?.user_id || userInfo?.id || undefined
+			
+			console.log('[경로 확정] stores 배열:', stores)
+			console.log('[경로 확정] source:', source)
+			
 			const requestBody = {
-				store_ids: storeIds,
+				...(userId && { user_id: userId }), // user_id가 있으면 포함
 				start_lat: lat,
 				start_lng: lng,
-				total_distance_km: totalDistanceKm,
-				is_round_trip: isRoundTrip
+				end_lat: null,
+				end_lng: null,
+				total_distance_km: totalDistance,
+				estimated_time_min: estimatedTime,
+				is_roundtrip: isRoundTripValue,
+				polyline: null,
+				stores: stores,
+				route_context: null
 			}
+			
+			console.log('[경로 확정] requestBody:', JSON.stringify(requestBody, null, 2))
 			
 			const r = await fetch(getBackendUrlWithPath('api/routes/confirm'), {
 				method: 'POST',
@@ -677,12 +721,67 @@ export default function App() {
 			}
 			
 			const data = await r.json()
+			
+			// route_id 저장
+			if (data.route_id) {
+				setConfirmedRouteId(data.route_id)
+			}
+			
+			// routeResult는 기존 호환성을 위해 유지 (필요시 사용)
 			setRouteResult(data)
+			
+			// 성공 메시지
+			console.log('✅ 경로 확정 완료:', data.route_id)
 		} catch (e) {
 			const errorText = await e.text ? await e.text() : String(e)
 			setSearchError(errorText)
+			console.error('경로 확정 실패:', errorText)
 		} finally {
 			setSearchLoading(false)
+		}
+	}
+	
+	// 가게 확정 함수 (단일 테마일 때) - confirmRoute로 리다이렉트
+	const confirmStore = async () => {
+		await confirmRoute('single')
+	}
+	
+	// 경로 URL 가져오기 함수
+	const getRouteUrl = async (routeId) => {
+		if (!BACKEND_URL) {
+			setSearchError('백엔드 URL이 설정되지 않았습니다.')
+			return null
+		}
+		
+		try {
+			const r = await fetch(getBackendUrlWithPath(`api/routes/${routeId}`), {
+				method: 'GET',
+				mode: 'cors',
+				credentials: 'omit'
+			})
+			
+			if (!r.ok) {
+				const errorText = await r.text()
+				throw new Error(errorText)
+			}
+			
+			const data = await r.json()
+			return data.route_url
+		} catch (e) {
+			const errorText = await e.text ? await e.text() : String(e)
+			setSearchError(errorText)
+			console.error('경로 URL 가져오기 실패:', errorText)
+			return null
+		}
+	}
+	
+	// 경로 확인하기 버튼 클릭 핸들러
+	const handleRouteViewClick = async (e, routeId) => {
+		e.preventDefault()
+		
+		const routeUrl = await getRouteUrl(routeId)
+		if (routeUrl) {
+			window.open(routeUrl, '_blank', 'noopener,noreferrer')
 		}
 	}
 	
@@ -713,22 +812,22 @@ export default function App() {
 		const checkReviews = async () => {
 			try {
 				const promises = processingStores.map(store => 
-					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
+					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}/review`), {
 						method: 'GET',
 						mode: 'cors',
 						credentials: 'omit'
-					}).then(r => r.ok ? r.json() : null)
+					}).then(r => r.ok ? r.json() : null).catch(() => null)
 				)
 				
 				const results = await Promise.all(promises)
 				const updatedStores = storeCandidates.map(store => {
 					const result = results.find(r => r && r.store_id === store.store_id)
-					// summary_status가 ready가 되었거나 review_summary가 생겼으면 업데이트
-					if (result && result.summary_status === 'ready' && store.summary_status === 'processing') {
+					// API 호출이 성공(200)하면 review_summary가 있음 → summary_status='ready'로 업데이트
+					if (result && store.summary_status === 'processing') {
 						return {
 							...store,
-							summary_status: result.summary_status,
-							review_summary: result.review_summary || store.review_summary
+							summary_status: 'ready',
+							review_summary: result
 						}
 					}
 					return store
@@ -749,6 +848,67 @@ export default function App() {
 		return () => clearInterval(interval)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [storeCandidates])
+	
+	// 리뷰 요약 상태 확인 (폴링) - 빠른 검색 결과용
+	const resultRef = useRef(result)
+	useEffect(() => {
+		resultRef.current = result
+	}, [result])
+	
+	useEffect(() => {
+		if (!result || !result.waypoints || result.waypoints.length === 0) return
+		
+		const processingWaypoints = result.waypoints.filter(w => w.store_id && w.summary_status === 'processing')
+		if (processingWaypoints.length === 0) return
+		
+		const checkWaypointReviews = async () => {
+			const currentResult = resultRef.current
+			if (!currentResult || !currentResult.waypoints || currentResult.waypoints.length === 0) return
+			
+			try {
+				const processingWaypoints = currentResult.waypoints.filter(w => w.store_id && w.summary_status === 'processing')
+				if (processingWaypoints.length === 0) return
+				
+				const promises = processingWaypoints.map(waypoint =>
+					fetch(getBackendUrlWithPath(`api/stores/${waypoint.store_id}/review`), {
+						method: 'GET',
+						mode: 'cors',
+						credentials: 'omit'
+					}).then(r => r.ok ? r.json() : null).catch(() => null)
+				)
+				
+				const results = await Promise.all(promises)
+				const updatedWaypoints = currentResult.waypoints.map(waypoint => {
+					if (!waypoint.store_id || waypoint.summary_status !== 'processing') {
+						return waypoint
+					}
+					const fetchedReview = results.find(r => r && r.store_id === waypoint.store_id)
+					if (fetchedReview) {
+						return {
+							...waypoint,
+							summary_status: 'ready',
+							review_summary: fetchedReview
+						}
+					}
+					return waypoint
+				})
+				
+				const hasUpdate = updatedWaypoints.some((w, idx) =>
+					w.summary_status === 'ready' && currentResult.waypoints[idx]?.summary_status === 'processing'
+				)
+				
+				if (hasUpdate) {
+					setResult({ ...currentResult, waypoints: updatedWaypoints })
+				}
+			} catch (e) {
+				console.error('Failed to check waypoint reviews:', e)
+			}
+		}
+		
+		checkWaypointReviews()
+		const interval = setInterval(checkWaypointReviews, 3000) // 3초마다 확인
+		return () => clearInterval(interval)
+	}, [result])
 	
 	// 리뷰 요약 상태 확인 (폴링) - 경로 후보용
 	const routeCandidatesRef = useRef(routeCandidates)
@@ -845,11 +1005,11 @@ export default function App() {
 				
 				// processingStores가 있으면 GET 요청 실행
 				const promises = processingStores.map(store => 
-					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}`), {
+					fetch(getBackendUrlWithPath(`api/stores/${store.store_id}/review`), {
 						method: 'GET',
 						mode: 'cors',
 						credentials: 'omit'
-					}).then(r => r.ok ? r.json() : null)
+					}).then(r => r.ok ? r.json() : null).catch(() => null)
 				)
 				
 				const results = await Promise.all(promises)
@@ -861,9 +1021,9 @@ export default function App() {
 					return // 업데이트만 skip
 				}
 				
-				// ready가 된 store_id 목록 추출
+				// API 호출이 성공(200)한 store_id 목록 추출 (review_summary가 있음)
 				const readyStoreIds = results
-					.filter(r => r && r.summary_status === 'ready')
+					.filter(r => r && r.store_id)
 					.map(r => r.store_id)
 				
 				if (readyStoreIds.length === 0) {
@@ -890,12 +1050,12 @@ export default function App() {
 						// store_id가 ready 목록에 있고, 현재 processing 상태인 경우만 업데이트
 						if (readyStoreIds.includes(store.store_id) && store.summary_status === 'processing') {
 							const result = results.find(r => r && r.store_id === store.store_id)
-							if (result && result.summary_status === 'ready') {
+							if (result) {
 								console.log(`[poll] updating store ${store.store_id} (${store.name})`)
 								return {
 									...store, // 기존 store 속성 유지
-									summary_status: result.summary_status, // 'ready'로 업데이트
-									review_summary: result.review_summary || store.review_summary // review_summary 업데이트
+									summary_status: 'ready', // 'ready'로 업데이트
+									review_summary: result // review_summary 업데이트
 								}
 							}
 						}
@@ -952,6 +1112,224 @@ export default function App() {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [routeCandidates])
+
+	// 추천 코스 탭 로드
+	useEffect(() => {
+		const loadTabs = async () => {
+			setLoadingTabs(true)
+			setErrorTabs(null)
+			try {
+				const data = await fetchRouteTabs({ limit: 10, days: 30 })
+				setTabs(data.tabs || [])
+				// 기본값은 "__ALL__"이므로 자동으로 전체 경로 로드
+			} catch (error) {
+				console.error('Failed to load route tabs:', error)
+				setErrorTabs(error.message || '탭을 불러오는데 실패했습니다.')
+			} finally {
+				setLoadingTabs(false)
+			}
+		}
+		loadTabs()
+	}, [])
+
+	// 선택된 탭으로 경로 로드
+	useEffect(() => {
+		if (!selectedTab) return
+
+		const loadRoutes = async () => {
+			setLoadingRoutes(true)
+			setErrorRoutes(null)
+			try {
+				if (selectedTab === '__ALL__') {
+					// 전체 추천 리스트 구성
+					// 상위 N개(6개) 키워드만 사용
+					const topKeywords = tabs.slice(0, 6).map(tab => tab.keyword)
+					
+					if (topKeywords.length === 0) {
+						setRoutes([])
+						setLoadingRoutes(false)
+						return
+					}
+					
+					// 각 keyword에 대해 /api/routes/by-keyword 호출 (limit=3)
+					const promises = topKeywords.map(keyword =>
+						fetchRoutesByKeyword({ keyword, limit: 3, days: 90 })
+							.catch(err => {
+								console.error(`Failed to load routes for keyword ${keyword}:`, err)
+								return [] // 에러 시 빈 배열 반환
+							})
+					)
+					
+					const results = await Promise.all(promises)
+					
+					// 결과 합치기
+					let allRoutes = []
+					results.forEach(routeList => {
+						if (Array.isArray(routeList)) {
+							allRoutes = allRoutes.concat(routeList)
+						}
+					})
+					
+					// route_id 기준 중복 제거
+					const uniqueRoutes = []
+					const seenRouteIds = new Set()
+					for (const route of allRoutes) {
+						if (route.route_id && !seenRouteIds.has(route.route_id)) {
+							seenRouteIds.add(route.route_id)
+							uniqueRoutes.push(route)
+						}
+					}
+					
+					// 최신순(created_at desc)으로 정렬
+					uniqueRoutes.sort((a, b) => {
+						const dateA = a.created_at ? new Date(a.created_at) : new Date(0)
+						const dateB = b.created_at ? new Date(b.created_at) : new Date(0)
+						return dateB - dateA // 내림차순
+					})
+					
+					setRoutes(uniqueRoutes)
+				} else {
+					// 특정 키워드로 경로 로드
+					const data = await fetchRoutesByKeyword({ keyword: selectedTab, limit: 10, days: 90 })
+					setRoutes(data || [])
+				}
+			} catch (error) {
+				console.error('Failed to load routes:', error)
+				setErrorRoutes(error.message || '경로를 불러오는데 실패했습니다.')
+			} finally {
+				setLoadingRoutes(false)
+			}
+		}
+		loadRoutes()
+	}, [selectedTab, tabs])
+
+	// 탭 클릭 핸들러
+	const handleTabClick = (tabValue) => {
+		setSelectedTab(tabValue)
+		setSelectedRecommendedRoute(null) // 탭 변경 시 선택 초기화
+		setSelectedRouteStoresWithStatus([])
+		setConfirmEnabled(false)
+	}
+	
+	// 추천 경로 카드 클릭 핸들러
+	const handleRecommendedRouteClick = async (route) => {
+		setSelectedRecommendedRoute(route)
+		
+		// stores에 summary_status 정보가 없으므로, 각 store_id에 대해 API 호출
+		if (route.stores && route.stores.length > 0) {
+			try {
+				const storesWithStatus = await Promise.all(
+					route.stores.map(async (store) => {
+						const storeId = store.store_id
+						if (!storeId) return { ...store, summary_status: 'unknown' }
+						
+						try {
+							const response = await fetch(getBackendUrlWithPath(`api/stores/${storeId}`), {
+								method: 'GET',
+								mode: 'cors',
+								credentials: 'omit'
+							})
+							
+							if (response.ok) {
+								const storeData = await response.json()
+								return {
+									...store,
+									summary_status: storeData.summary_status || 'processing',
+									review_summary: storeData.review_summary
+								}
+							} else {
+								return { ...store, summary_status: 'processing' }
+							}
+						} catch (error) {
+							console.error(`Failed to fetch store ${storeId}:`, error)
+							return { ...store, summary_status: 'processing' }
+						}
+					})
+				)
+				setSelectedRouteStoresWithStatus(storesWithStatus)
+			} catch (error) {
+				console.error('Failed to fetch store statuses:', error)
+				setSelectedRouteStoresWithStatus(route.stores.map(store => ({ ...store, summary_status: 'processing' })))
+			}
+		} else {
+			setSelectedRouteStoresWithStatus([])
+		}
+	}
+	
+	// confirmEnabled 계산
+	useEffect(() => {
+		if (!selectedRecommendedRoute || !selectedRouteStoresWithStatus || selectedRouteStoresWithStatus.length === 0) {
+			setConfirmEnabled(false)
+			return
+		}
+		
+		// 모든 store가 complete인지 확인
+		const allComplete = selectedRouteStoresWithStatus.every(store => {
+			const status = store.summary_status
+			// summary_status가 'ready' 또는 'complete'이면 완료
+			// summary_status가 없으면 review_summary 존재 여부로 판정
+			return status === 'ready' || status === 'complete' || (status === undefined && store.review_summary)
+		})
+		
+		setConfirmEnabled(allComplete)
+	}, [selectedRecommendedRoute, selectedRouteStoresWithStatus])
+	
+	// polling: selectedRecommendedRoute가 있고, pending인 store가 있을 때만
+	useEffect(() => {
+		if (!selectedRecommendedRoute || !selectedRouteStoresWithStatus || selectedRouteStoresWithStatus.length === 0) {
+			return
+		}
+		
+		const pendingStores = selectedRouteStoresWithStatus.filter(store => {
+			const status = store.summary_status
+			return status === 'processing' || (!status && !store.review_summary)
+		})
+		
+		if (pendingStores.length === 0) {
+			return // 모든 store가 complete이면 polling 불필요
+		}
+		
+		const checkStoreReviews = async () => {
+			try {
+				const promises = pendingStores.map(store => {
+					const storeId = store.store_id
+					if (!storeId) return Promise.resolve(null)
+					
+					return fetch(getBackendUrlWithPath(`api/stores/${storeId}`), {
+						method: 'GET',
+						mode: 'cors',
+						credentials: 'omit'
+					})
+						.then(r => r.ok ? r.json() : null)
+						.catch(() => null)
+				})
+				
+				const results = await Promise.all(promises)
+				
+				// selectedRouteStoresWithStatus 업데이트
+				setSelectedRouteStoresWithStatus(prevStores => {
+					return prevStores.map(store => {
+						const result = results.find(r => r && r.store_id === store.store_id)
+						if (result) {
+							return {
+								...store,
+								summary_status: result.summary_status || 'ready',
+								review_summary: result.review_summary
+							}
+						}
+						return store
+					})
+				})
+			} catch (error) {
+				console.error('Failed to check store reviews:', error)
+			}
+		}
+		
+		checkStoreReviews()
+		const interval = setInterval(checkStoreReviews, 3000) // 3초마다 확인
+		
+		return () => clearInterval(interval)
+	}, [selectedRecommendedRoute, selectedRouteStoresWithStatus])
 
 	return (
 		<div className="app-container page-bg">
@@ -1074,26 +1452,115 @@ export default function App() {
 				{/* 추천 러닝 코스 섹션 */}
 				<div className="recommended-courses-section">
 					<h3 className="section-title">추천 러닝 코스는 어떠세요?</h3>
-					<div className="courses-carousel">
-						<div className="course-card">
-							<div className="course-icon">☕</div>
-							<div className="course-title">연남 커미런</div>
-							<div className="course-info">약 6.8km · 러닝 후 들러기 좋은 카페</div>
-							<div className="course-map-preview"></div>
-						</div>
-						<div className="course-card">
-							<div className="course-icon">🌙</div>
-							<div className="course-title">한강 야간 런닝</div>
-							<div className="course-info">약 7.2km · 야간 뉴 코스</div>
-							<div className="course-time">35-45분</div>
-						</div>
-						<div className="course-card">
-							<div className="course-icon">🏃</div>
-							<div className="course-title">가벼운 런닝</div>
-							<div className="course-info">약 5km · 초보자 추천</div>
-							<div className="course-map-preview"></div>
-						</div>
-					</div>
+					
+					{/* 탭 목록 */}
+					{loadingTabs ? (
+						<div className="courses-loading">로딩 중...</div>
+					) : errorTabs ? (
+						<div className="courses-error">{errorTabs}</div>
+					) : tabs.length === 0 ? (
+						<div className="courses-empty">아직 데이터가 부족해요. 첫 코스를 확정해보세요!</div>
+					) : (
+						<>
+							<div className="courses-tabs">
+								{/* 전체 탭 (고정) */}
+								<button
+									className={`course-tab ${selectedTab === '__ALL__' ? 'active' : ''}`}
+									onClick={() => handleTabClick('__ALL__')}
+								>
+									<span className="course-tab-keyword">전체</span>
+								</button>
+								
+								{/* 키워드 탭들 */}
+								{tabs.map((tab) => (
+									<button
+										key={tab.keyword}
+										className={`course-tab ${selectedTab === tab.keyword ? 'active' : ''}`}
+										onClick={() => handleTabClick(tab.keyword)}
+									>
+										<span className="course-tab-keyword">{tab.keyword}</span>
+										{tab.usage_count > 0 && (
+											<span className="course-tab-count">{tab.usage_count}회</span>
+										)}
+									</button>
+								))}
+							</div>
+							
+							{/* 경로 목록 (가로 스크롤 카드) */}
+							{loadingRoutes ? (
+								<div className="courses-loading">경로를 불러오는 중...</div>
+							) : errorRoutes ? (
+								<div className="courses-error">{errorRoutes}</div>
+							) : routes.length === 0 ? (
+								<div className="courses-empty">
+									{selectedTab === '__ALL__' 
+										? '아직 추천 코스가 없어요. 첫 코스를 확정해보세요!' 
+										: '이 키워드로 등록된 코스가 없어요.'}
+								</div>
+							) : (
+								<>
+									<div className="courses-carousel">
+										{routes.map((route) => (
+											<div 
+												key={route.route_id} 
+												className={`course-card ${selectedRecommendedRoute?.route_id === route.route_id ? 'selected' : ''}`}
+												onClick={() => handleRecommendedRouteClick(route)}
+											>
+												{/* keyword 뱃지 */}
+												{route.keyword && (
+													<div className="course-keyword-badge">{route.keyword}</div>
+												)}
+												
+												{/* one_liner */}
+												{route.one_liner && (
+													<div className="course-info">{route.one_liner}</div>
+												)}
+												
+												{/* 거리/시간 */}
+												<div className="course-details">
+													{route.total_distance_km && (
+														<span>약 {route.total_distance_km}km</span>
+													)}
+													{route.estimated_time_min && (
+														<span> · {route.estimated_time_min}분</span>
+													)}
+												</div>
+												
+												{/* stores 1~2개 */}
+												{route.stores && route.stores.length > 0 && (
+													<div className="course-stores">
+														{route.stores.slice(0, 2).map((store, idx) => (
+															<span key={idx} className="course-store-item">
+																{store.order || idx + 1}. {store.name || store.store_id || '경유지'}
+															</span>
+														))}
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+									
+									{/* 확정 버튼 및 안내 문구 */}
+									{selectedRecommendedRoute && (
+										<div className="recommended-route-confirm-section" style={{ marginTop: '20px' }}>
+											{!confirmEnabled && (
+												<div className="confirm-message">
+													AI 리뷰 요약이 완료되면 확정할 수 있어요.
+												</div>
+											)}
+											<button
+												onClick={() => confirmRoute('recommended')}
+												disabled={!confirmEnabled}
+												className={`confirm-btn ${!confirmEnabled ? 'disabled' : ''}`}
+											>
+												경로 확정
+											</button>
+										</div>
+									)}
+								</>
+							)}
+						</>
+					)}
 				</div>
 			</div>
 
@@ -1474,7 +1941,11 @@ export default function App() {
 									{routeResult.waypoints.map((waypoint, index) => (
 										<div key={waypoint.order} className="route-waypoint-item">
 											<div className="waypoint-result-title">{index + 1}. {waypoint.place_name}</div>
-											{waypoint.review_summary ? (
+											{(!waypoint.summary_status || waypoint.summary_status === 'processing') && !waypoint.review_summary ? (
+												<div className="review-processing">
+													⏳ AI가 리뷰를 요약 중입니다...
+												</div>
+											) : waypoint.review_summary ? (
 												<div className="route-review-summary">
 													<div className="review-complete">
 														✓ 리뷰 요약 완료
@@ -1494,14 +1965,25 @@ export default function App() {
 									))}
 								</div>
 							)}
-							<a 
-								href={routeResult.route_url} 
-								target="_blank" 
-								rel="noreferrer"
-								className="route-link"
-							>
-								🗺️ 경로 확인하기
-							</a>
+							{/* 경로 확인하기 버튼 (확정 완료 후) */}
+							{confirmedRouteId ? (
+								<button 
+									onClick={(e) => handleRouteViewClick(e, confirmedRouteId)}
+									className="route-link"
+									style={{ marginTop: '20px', display: 'block', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit' }}
+								>
+									🗺️ 경로 확인하기
+								</button>
+							) : routeResult.route_url ? (
+								<a 
+									href={routeResult.route_url} 
+									target="_blank" 
+									rel="noreferrer"
+									className="route-link"
+								>
+									🗺️ 걷기 길찾기 열기
+								</a>
+							) : null}
 						</div>
 					)}
 				</div>
@@ -1539,9 +2021,9 @@ export default function App() {
 										</div>
 									)}
 									<div className="review-section">
-										{!waypoint.review_summary ? (
+										{(!waypoint.summary_status || waypoint.summary_status === 'processing') && !waypoint.review_summary ? (
 											<div className="review-processing">
-												⏳ AI가 리뷰를 요약 중입니다.
+												⏳ AI가 리뷰를 요약 중입니다...
 											</div>
 										) : waypoint.review_summary ? (
 											<div className="review-summary">
@@ -1578,15 +2060,43 @@ export default function App() {
 								경유지를 찾을 수 없습니다. 다른 키워드나 거리를 시도해보세요.
 							</div>
 						)}
+						
+						{/* 경로 확정 버튼 */}
+						{result.waypoints && result.waypoints.length > 0 && (
+							<div className="confirm-container" style={{ marginTop: '20px' }}>
+								<button
+									onClick={() => confirmRoute('quick')}
+									disabled={searchLoading}
+									className="confirm-btn"
+								>
+									{searchLoading ? '확정 중...' : '경로 확정'}
+								</button>
+							</div>
+						)}
 					</div>
-					<a 
-						href={result.route_url} 
-						target="_blank" 
-						rel="noreferrer"
-						className="route-link"
-					>
-						🗺️ 걷기 길찾기 열기
-					</a>
+					
+					{/* 경로 확인하기 버튼 (확정 완료 후) */}
+					{confirmedRouteId && (
+						<button 
+							onClick={(e) => handleRouteViewClick(e, confirmedRouteId)}
+							className="route-link"
+							style={{ marginTop: '20px', display: 'block', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit' }}
+						>
+							🗺️ 경로 확인하기
+						</button>
+					)}
+					
+					{/* 기존 경로 링크 (확정 전) */}
+					{!confirmedRouteId && result.route_url && (
+						<a 
+							href={result.route_url} 
+							target="_blank" 
+							rel="noreferrer"
+							className="route-link"
+						>
+							🗺️ 걷기 길찾기 열기
+						</a>
+					)}
 				</div>
 			)}
 		</div>
