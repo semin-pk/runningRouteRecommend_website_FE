@@ -666,12 +666,31 @@ export default function App() {
 				setSearchError('경로를 선택해주세요.')
 				return
 			}
+			
+			console.log('[경로 확정] selectedRoute:', selectedRoute)
+			console.log('[경로 확정] selectedRoute.stores:', selectedRoute.stores)
+			console.log('[경로 확정] selectedRoute.stores[0]:', selectedRoute.stores[0])
+			
 			stores = selectedRoute.stores
-				.filter(s => s.store_id) // store_id가 있는 경우만
-				.map((s, index) => ({
-					store_id: s.store_id,
-					order: s.order || (index + 1)
-				}))
+				.filter(s => {
+					const hasStoreId = s && (s.store_id || (typeof s === 'object' && 'store_id' in s))
+					if (!hasStoreId) {
+						console.warn('[경로 확정] store_id가 없는 항목:', s)
+					}
+					return hasStoreId
+				})
+				.map((s, index) => {
+					const storeId = s.store_id || (typeof s === 'object' && 'store_id' in s ? s.store_id : null)
+					const order = s.order || (index + 1)
+					console.log(`[경로 확정] store ${index}: store_id=${storeId}, order=${order}`)
+					return {
+						store_id: storeId,
+						order: order
+					}
+				})
+			
+			console.log('[경로 확정] 최종 stores 배열:', stores)
+			
 			if (stores.length === 0) {
 				setSearchError('경로에 가게 정보가 없습니다.')
 				return
@@ -1911,7 +1930,7 @@ export default function App() {
 									{selectedRoute && (
 										<div className="confirm-container">
 											<button
-												onClick={confirmRoute}
+												onClick={() => confirmRoute('route')}
 												disabled={searchLoading}
 												className="confirm-btn"
 											>

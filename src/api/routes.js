@@ -55,4 +55,3 @@ export async function fetchDirectionsUrl(routeId) {
   const response = await api.get(`/api/routes/${routeId}/directions-url`)
   return response.data
 }
-
