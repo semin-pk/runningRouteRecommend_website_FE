@@ -108,7 +108,7 @@ export default function MyPage() {
         <button
           type="button"
           className="mypage-back"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/')}
           aria-label="뒤로가기"
         >
           &lt;
