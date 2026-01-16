@@ -6,6 +6,9 @@ import { fetchCurrentWeather } from './services/weather'
 import { mapWeatherCodeToGroup, decideThemeId, applyThemeId, getHeroMessage } from './utils/theme'
 import { getCachedWeather, setCachedWeather } from './utils/weatherCache'
 import { fetchRouteTabs, fetchRoutesByKeyword } from './api/routes.js'
+import { getBookmarks, addBookmark, removeBookmark } from './api/bookmarks.js'
+import { addRouteHistory } from './api/routeHistories.js'
+import { addStoreThemeLog } from './api/storeThemeLogs.js'
 
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY
 const BACKEND_URL = getBackendUrl()
@@ -216,6 +219,9 @@ export default function App() {
 	const [confirmedRouteId, setConfirmedRouteId] = useState(null) // 확정된 route_id
 	const [searchError, setSearchError] = useState(null)
 	const [searchType, setSearchType] = useState(null) // 'single' or 'route'
+	const [routeSummary, setRouteSummary] = useState(null)
+	const [summaryLoading, setSummaryLoading] = useState(false)
+	const [summaryError, setSummaryError] = useState(null)
 
 	const canSubmit = lat !== null && lng !== null && totalDistanceKm > 0 && waypoints.length > 0
 
@@ -238,6 +244,8 @@ export default function App() {
 	const [loadingRoutes, setLoadingRoutes] = useState(false)
 	const [errorTabs, setErrorTabs] = useState(null)
 	const [errorRoutes, setErrorRoutes] = useState(null)
+	const [bookmarkRouteIds, setBookmarkRouteIds] = useState([])
+	const [toast, setToast] = useState(null)
 
 	// AbortController ref (이전 요청 취소용)
 	const abortControllerRef = useRef(null)
@@ -383,6 +391,77 @@ export default function App() {
 		}
 		checkAuth()
 	}, [])
+
+	// 북마크 목록 로드 (로그인 상태에서만)
+	useEffect(() => {
+		const loadBookmarks = async () => {
+			if (!isAuthenticated) {
+				setBookmarkRouteIds([])
+				return
+			}
+			try {
+				const data = await getBookmarks()
+				const ids = (data?.items || []).map(item => item.route_id).filter(Boolean)
+				setBookmarkRouteIds(ids)
+			} catch (error) {
+				console.error('Failed to load bookmarks:', error)
+			}
+		}
+		loadBookmarks()
+	}, [isAuthenticated])
+
+	const toggleBookmark = async (e, routeId) => {
+		e.stopPropagation()
+		if (!routeId) return
+		if (!isAuthenticated) {
+			navigate('/login?next=/mypage')
+			return
+		}
+		const isBookmarked = bookmarkRouteIds.includes(routeId)
+		try {
+			if (isBookmarked) {
+				await removeBookmark(routeId)
+				setBookmarkRouteIds(prev => prev.filter(id => id !== routeId))
+			} else {
+				await addBookmark(routeId)
+				setBookmarkRouteIds(prev => [...prev, routeId])
+				setToast({
+					message: '저장했어요! 마이페이지에서 확인하기',
+					actionLabel: '마이페이지',
+					action: () => navigate('/mypage'),
+				})
+			}
+		} catch (error) {
+			console.error('Failed to toggle bookmark:', error)
+		}
+	}
+
+	useEffect(() => {
+		if (!toast) return undefined
+		const timer = setTimeout(() => setToast(null), 3000)
+		return () => clearTimeout(timer)
+	}, [toast])
+
+	const getPrimaryTheme = () => {
+		const theme = searchThemes.find(t => t.trim())
+		return theme ? theme.trim() : ''
+	}
+
+	const logStoreTheme = (theme, storeId) => {
+		if (!isAuthenticated || !storeId) return
+		const safeTheme = theme && theme.trim() ? theme.trim() : '코스'
+		addStoreThemeLog({ theme: safeTheme, storeId }).catch(() => {})
+	}
+
+	const logStoresByTheme = (stores, themeMap = {}) => {
+		if (!stores || stores.length === 0) return
+		stores.forEach((store) => {
+			const storeId = store.store_id || store.storeId
+			if (!storeId) return
+			const theme = themeMap[storeId] || '코스'
+			logStoreTheme(theme, storeId)
+		})
+	}
 
 	const handleLogout = async () => {
 		try {
@@ -700,6 +779,9 @@ export default function App() {
 		
 		setSearchLoading(true)
 		setSearchError(null)
+		setRouteSummary(null)
+		setSummaryError(null)
+		setSummaryLoading(false)
 		
 		try {
 			// user_id: 로그인된 경우 userInfo에서, 아니면 임시 값 (백엔드에서 optional 처리됨)
@@ -744,6 +826,24 @@ export default function App() {
 			// route_id 저장
 			if (data.route_id) {
 				setConfirmedRouteId(data.route_id)
+				setSummaryLoading(true)
+				try {
+					const summaryRes = await fetch(getBackendUrlWithPath(`api/routes/${data.route_id}/summarize`), {
+						method: 'POST',
+						mode: 'cors',
+						credentials: 'omit'
+					})
+					if (summaryRes.ok) {
+						const summaryData = await summaryRes.json()
+						setRouteSummary(summaryData)
+					} else {
+						setSummaryError('요약을 불러오지 못했어요.')
+					}
+				} catch (e) {
+					setSummaryError('요약을 불러오지 못했어요.')
+				} finally {
+					setSummaryLoading(false)
+				}
 			}
 			
 			// routeResult는 기존 호환성을 위해 유지 (필요시 사용)
@@ -751,6 +851,20 @@ export default function App() {
 			
 			// 성공 메시지
 			console.log('✅ 경로 확정 완료:', data.route_id)
+
+			// 테마 로그 적재 (silent)
+			const themeMap = {}
+			if (source === 'quick' && result?.waypoints) {
+				result.waypoints.forEach((wp) => {
+					if (wp.store_id) {
+						themeMap[wp.store_id] = (wp.theme_keyword || '').trim() || '코스'
+					}
+				})
+			}
+			if (source === 'single' && selectedStore?.store_id) {
+				themeMap[selectedStore.store_id] = getPrimaryTheme() || '코스'
+			}
+			logStoresByTheme(stores, themeMap)
 		} catch (e) {
 			const errorText = await e.text ? await e.text() : String(e)
 			setSearchError(errorText)
@@ -758,6 +872,31 @@ export default function App() {
 		} finally {
 			setSearchLoading(false)
 		}
+	}
+
+	const renderRouteSummary = () => {
+		if (summaryLoading) {
+			return <div className="review-processing">⏳ 경로 요약 생성 중...</div>
+		}
+		if (summaryError) {
+			return <div className="error-message">{summaryError}</div>
+		}
+		if (!routeSummary) return null
+
+		return (
+			<div className="route-summary-panel">
+				<div className="review-complete">✓ 경로 요약 완료</div>
+				{routeSummary.one_liner && (
+					<div className="review-item">요약: {routeSummary.one_liner}</div>
+				)}
+				{routeSummary.route_tags && routeSummary.route_tags.length > 0 && (
+					<div className="review-item">태그: {routeSummary.route_tags.join(', ')}</div>
+				)}
+				{routeSummary.best_for && routeSummary.best_for.length > 0 && (
+					<div className="review-item">추천 대상: {routeSummary.best_for.join(', ')}</div>
+				)}
+			</div>
+		)
 	}
 	
 	// 가게 확정 함수 (단일 테마일 때) - confirmRoute로 리다이렉트
@@ -798,6 +937,14 @@ export default function App() {
 	const handleRouteViewClick = async (e, routeId) => {
 		e.preventDefault()
 		
+		if (routeId) {
+			addRouteHistory(routeId)
+				.then(() => {
+					setToast({ message: '최근 선택 코스에 저장됨' })
+				})
+				.catch(() => {})
+		}
+
 		const routeUrl = await getRouteUrl(routeId)
 		if (routeUrl) {
 			window.open(routeUrl, '_blank', 'noopener,noreferrer')
@@ -1274,6 +1421,24 @@ export default function App() {
 			setSelectedRouteStoresWithStatus([])
 		}
 	}
+
+	const handleSelectStore = (store) => {
+		setSelectedStore(store)
+		if (store?.store_id) {
+			logStoreTheme(getPrimaryTheme() || '코스', store.store_id)
+		}
+	}
+
+	const handleSelectRouteCandidate = (route) => {
+		setSelectedRoute(route)
+		if (route?.stores && Array.isArray(route.stores)) {
+			route.stores.forEach((store) => {
+				if (store?.store_id) {
+					logStoreTheme('코스', store.store_id)
+				}
+			})
+		}
+	}
 	
 	// confirmEnabled 계산
 	useEffect(() => {
@@ -1352,10 +1517,64 @@ export default function App() {
 
 	return (
 		<div className="app-container page-bg">
+			{toast && (
+				<div className="app-toast">
+					<span>{toast.message}</span>
+					{toast.actionLabel && (
+						<button
+							type="button"
+							className="app-toast-btn"
+							onClick={() => {
+								toast.action?.()
+								setToast(null)
+							}}
+						>
+							{toast.actionLabel}
+						</button>
+					)}
+					<button
+						type="button"
+						className="app-toast-close"
+						onClick={() => setToast(null)}
+					>
+						닫기
+					</button>
+				</div>
+			)}
 			<header className="app-header">
 				<div className="header-top">
-					<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
+					<button
+						type="button"
+						className="logo-button"
+						onClick={() => navigate('/')}
+						aria-label="홈으로 이동"
+					>
+						<img src="/logo.png" alt="Run2Style Logo" className="app-logo" />
+					</button>
 					<div className="header-actions">
+						<button
+							type="button"
+							className="header-profile-btn"
+							onClick={() => {
+								const accessToken = localStorage.getItem('access_token')
+								if (accessToken) {
+									navigate('/mypage')
+								} else {
+									navigate('/login?next=/mypage')
+								}
+							}}
+							aria-label="마이페이지"
+						>
+						{isAuthenticated && (userInfo?.profile_image_url || userInfo?.profile_image) ? (
+								<img
+								src={userInfo.profile_image_url || userInfo.profile_image}
+									alt="프로필"
+									className="header-profile-img"
+								/>
+							) : (
+								<span className="header-profile-fallback">👤</span>
+							)}
+						</button>
 						{isAuthenticated && userInfo && (
 							<span className="user-info">
 								{userInfo.nickname || userInfo.email}님
@@ -1525,6 +1744,14 @@ export default function App() {
 												className={`course-card ${selectedRecommendedRoute?.route_id === route.route_id ? 'selected' : ''}`}
 												onClick={() => handleRecommendedRouteClick(route)}
 											>
+												<button
+													type="button"
+													className={`bookmark-toggle ${bookmarkRouteIds.includes(route.route_id) ? 'active' : ''}`}
+													onClick={(e) => toggleBookmark(e, route.route_id)}
+													aria-label="북마크"
+												>
+													{bookmarkRouteIds.includes(route.route_id) ? '★' : '☆'}
+												</button>
 												{/* keyword 뱃지 */}
 												{route.keyword && (
 													<div className="course-keyword-badge">{route.keyword}</div>
@@ -1564,15 +1791,15 @@ export default function App() {
 										<div className="recommended-route-confirm-section" style={{ marginTop: '20px' }}>
 											{!confirmEnabled && (
 												<div className="confirm-message">
-													AI 리뷰 요약이 완료되면 확정할 수 있어요.
+													AI 리뷰 요약이 완료되면 확인할 수 있어요.
 												</div>
 											)}
 											<button
-												onClick={() => confirmRoute('recommended')}
+												onClick={(e) => handleRouteViewClick(e, selectedRecommendedRoute.route_id)}
 												disabled={!confirmEnabled}
 												className={`confirm-btn ${!confirmEnabled ? 'disabled' : ''}`}
 											>
-												경로 확정
+												경로 확인하기
 											</button>
 										</div>
 									)}
@@ -1801,7 +2028,7 @@ export default function App() {
 									{storeCandidates.map((store, index) => (
 								<div
 									key={store.store_id}
-									onClick={() => setSelectedStore(store)}
+									onClick={() => handleSelectStore(store)}
 									className={`store-card ${selectedStore?.store_id === store.store_id ? 'selected' : ''}`}
 								>
 									<div className="store-name">
@@ -1875,7 +2102,7 @@ export default function App() {
 									{routeCandidates.map((route, routeIndex) => (
 								<div
 									key={route.route_id}
-									onClick={() => setSelectedRoute(route)}
+									onClick={() => handleSelectRouteCandidate(route)}
 									className={`route-card ${selectedRoute?.route_id === route.route_id ? 'selected' : ''}`}
 								>
 									<div className="route-title">
@@ -1952,9 +2179,10 @@ export default function App() {
 						<div className="result-container" style={{ marginTop: '20px' }}>
 							<h3 className="result-title">✅ 경로 확정 완료</h3>
 							<div className="result-summary">
-								목표 러닝 거리: <strong>{routeResult.total_distance_km}km</strong> | 
-								실제 총 거리: <strong>{routeResult.actual_total_distance_km}km</strong> ({routeResult.is_round_trip ? '왕복' : '편도'})
+								목표 러닝 거리: <strong>{routeResult.total_distance_km ?? totalDistanceKm ?? '-'}km</strong> | 
+								실제 총 거리: <strong>{routeResult.actual_total_distance_km ?? '-'}km</strong> ({routeResult.is_round_trip ?? routeResult.is_roundtrip ?? isRoundTrip ? '왕복' : '편도'})
 							</div>
+							{renderRouteSummary()}
 							{routeResult.waypoints && routeResult.waypoints.length > 0 && (
 								<div className="route-waypoints-list">
 									{routeResult.waypoints.map((waypoint, index) => (
@@ -2011,7 +2239,7 @@ export default function App() {
 
 			{error && <div className="error-message">{error}</div>}
 
-			{/* 빠른 검색 결과 */}
+					{/* 빠른 검색 결과 */}
 			{mode === 'quick' && result && (
 				<div className="result-container">
 					<div style={{ marginBottom: 12 }}>
@@ -2092,6 +2320,7 @@ export default function App() {
 								</button>
 							</div>
 						)}
+						{renderRouteSummary()}
 					</div>
 					
 					{/* 경로 확인하기 버튼 (확정 완료 후) */}

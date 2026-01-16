@@ -55,3 +55,14 @@ export async function fetchDirectionsUrl(routeId) {
   const response = await api.get(`/api/routes/${routeId}/directions-url`)
   return response.data
 }
+export async function previewRouteFromStores({ start, storeIds, roundTrip = false }) {
+  if (!start || !storeIds || storeIds.length === 0) {
+    throw new Error('start and storeIds are required')
+  }
+  const response = await api.post('/api/routes/preview-from-stores', {
+    start,
+    store_ids: storeIds,
+    round_trip: roundTrip,
+  })
+  return response.data
+}

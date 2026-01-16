@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { getBackendUrl } from '../utils/api.js'
 
@@ -11,15 +11,18 @@ const BACKEND_URL = getBackendUrl()
 
 function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
     // If already logged in, redirect to home
     const accessToken = localStorage.getItem('access_token')
     if (accessToken) {
-      navigate('/')
+      const nextParam = searchParams.get('next')
+      const safeNext = nextParam && nextParam.startsWith('/') ? nextParam : '/'
+      navigate(safeNext)
     }
-  }, [navigate])
+  }, [navigate, searchParams])
 
   const handleSocialLogin = (provider) => {
     // 중복 클릭 방지
@@ -31,8 +34,11 @@ function Login() {
     setIsRedirecting(true)
     console.log(`[Login] ${provider} 로그인 시작 - 리다이렉트 중...`)
     
+    const nextParam = searchParams.get('next')
+    const safeNext = nextParam && nextParam.startsWith('/') ? nextParam : ''
+    const nextQuery = safeNext ? `?next=${encodeURIComponent(safeNext)}` : ''
     // Redirect to backend OAuth start endpoint
-    window.location.href = `${BACKEND_URL}/api/v1/auth/${provider}/start`
+    window.location.href = `${BACKEND_URL}/api/v1/auth/${provider}/start${nextQuery}`
   }
 
   return (

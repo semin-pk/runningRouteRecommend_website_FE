@@ -281,10 +281,11 @@ button:focus-visible {
 }
 
 :root[data-theme="day_clear"] {
-  --bg: linear-gradient(180deg, #F6FAFF 0%, #EEF5FF 55%, #F8FAFF 100%);
-  --overlay: rgba(255, 255, 255, 0.10);
-  --text: rgba(31, 41, 55, 0.95);
-  --text-muted: rgba(100, 116, 139, 0.80);
+  --bg: radial-gradient(900px circle at 20% 10%, #CFEFFF 0%, transparent 60%),
+        linear-gradient(180deg, #7CC6FF 0%, #A9DCFF 45%, #E6F6FF 100%);
+  --overlay: rgba(255, 255, 255, 0.12);
+  --text: rgba(15, 23, 42, 0.96);
+  --text-muted: rgba(71, 85, 105, 0.86);
   
   /* 밝은 테마: 대비 강화 */
   --panel-bg: rgba(255, 255, 255, 0.94);

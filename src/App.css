@@ -128,6 +128,21 @@
   gap: 10px;
 }
 
+.logo-button {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
 .user-info {
   font-size: 14px;
   color: var(--text);
@@ -279,6 +294,56 @@
   max-width: 100%;
   transition: height 0.3s ease;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.app-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #f5f7ff;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.app-toast-btn,
+.app-toast-close {
+  background: transparent;
+  border: none;
+  color: #8fe3d1;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.header-profile-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.header-profile-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.header-profile-fallback {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* 다크 테마 로고 */
@@ -1070,6 +1135,39 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* 밝은 테마 탭 가독성 */
+:root[data-theme="day_clear"] .course-tab,
+:root[data-theme="morning_clear"] .course-tab {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--panel-border);
+  color: var(--text-strong);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="day_clear"] .course-tab:hover,
+:root[data-theme="morning_clear"] .course-tab:hover {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.35);
+  color: var(--text-strong);
+}
+
+:root[data-theme="day_clear"] .course-tab.active,
+:root[data-theme="morning_clear"] .course-tab.active {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4CAF50;
+  color: #0F172A;
+}
+
+:root[data-theme="day_clear"] .course-tab-count,
+:root[data-theme="morning_clear"] .course-tab-count {
+  color: var(--text-muted);
+}
+
+:root[data-theme="day_clear"] .course-tab.active .course-tab-count,
+:root[data-theme="morning_clear"] .course-tab.active .course-tab-count {
+  color: rgba(15, 23, 42, 0.7);
+}
+
 /* 로딩/에러/빈 상태 */
 .courses-loading,
 .courses-error,
@@ -1082,6 +1180,13 @@
 
 .courses-error {
   color: #f44336;
+}
+
+:root[data-theme="day_clear"] .courses-loading,
+:root[data-theme="morning_clear"] .courses-loading,
+:root[data-theme="day_clear"] .courses-empty,
+:root[data-theme="morning_clear"] .courses-empty {
+  color: var(--text-muted);
 }
 
 .course-details {
@@ -1104,6 +1209,27 @@
   background: rgba(76, 175, 80, 0.1);
   border-radius: 8px;
   border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+:root[data-theme="day_clear"] .course-title,
+:root[data-theme="morning_clear"] .course-title {
+  color: var(--text-strong);
+}
+
+:root[data-theme="day_clear"] .course-info,
+:root[data-theme="morning_clear"] .course-info,
+:root[data-theme="day_clear"] .course-details,
+:root[data-theme="morning_clear"] .course-details,
+:root[data-theme="day_clear"] .course-stores,
+:root[data-theme="morning_clear"] .course-stores {
+  color: var(--text-muted);
+}
+
+:root[data-theme="day_clear"] .course-store-item,
+:root[data-theme="morning_clear"] .course-store-item {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.25);
+  color: #2E7D32;
 }
 
 .courses-carousel {
@@ -1142,6 +1268,30 @@
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
+  position: relative;
+}
+
+.bookmark-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: #f5f7ff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bookmark-toggle.active {
+  background: rgba(76, 175, 80, 0.25);
+  border-color: rgba(76, 175, 80, 0.6);
+  color: #9cffcc;
 }
 
 .course-card:hover {
@@ -1155,6 +1305,26 @@
   background: rgba(76, 175, 80, 0.25);
   border: 2px solid #4CAF50;
   box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+}
+
+/* 밝은 테마 카드 배경/대비 */
+:root[data-theme="day_clear"] .course-card,
+:root[data-theme="morning_clear"] .course-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--panel-border);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10);
+}
+
+:root[data-theme="day_clear"] .course-card:hover,
+:root[data-theme="morning_clear"] .course-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(76, 175, 80, 0.35);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme="day_clear"] .course-card.selected,
+:root[data-theme="morning_clear"] .course-card.selected {
+  background: rgba(76, 175, 80, 0.18);
 }
 
 .course-card:active {
@@ -1259,6 +1429,14 @@
   font-size: 1.1rem;
   height: 56px;
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+/* 밝은 테마 경로 확인 버튼 대비 강화 */
+:root[data-theme="day_clear"] .route-confirm-btn,
+:root[data-theme="morning_clear"] .route-confirm-btn {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 22px rgba(76, 175, 80, 0.45);
 }
 
 .route-confirm-btn:hover:not(:disabled) {
@@ -1552,6 +1730,15 @@
   font-size: 14px;
 }
 
+.route-summary-panel {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
 .review-complete {
   color: #4CAF50;
   font-weight: bold;
@@ -1562,6 +1749,61 @@
   color: rgba(255, 255, 255, 0.7);
   margin-bottom: 3px;
   font-size: 14px;
+}
+
+/* 밝은 테마 리뷰 텍스트 톤 통일 */
+:root[data-theme="day_clear"] .review-complete,
+:root[data-theme="morning_clear"] .review-complete {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 밝은 테마 카드/리스트 텍스트 대비 */
+:root[data-theme="day_clear"] .candidates-title,
+:root[data-theme="morning_clear"] .candidates-title,
+:root[data-theme="day_clear"] .store-name,
+:root[data-theme="morning_clear"] .store-name,
+:root[data-theme="day_clear"] .route-title,
+:root[data-theme="morning_clear"] .route-title {
+  color: var(--text-strong);
+}
+
+:root[data-theme="day_clear"] .store-address,
+:root[data-theme="morning_clear"] .store-address,
+:root[data-theme="day_clear"] .store-phone,
+:root[data-theme="morning_clear"] .store-phone,
+:root[data-theme="day_clear"] .review-item,
+:root[data-theme="morning_clear"] .review-item {
+  color: var(--text-muted);
+}
+
+:root[data-theme="day_clear"] .store-card,
+:root[data-theme="morning_clear"] .store-card,
+:root[data-theme="day_clear"] .route-card,
+:root[data-theme="morning_clear"] .route-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--panel-border);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="day_clear"] .store-card:hover,
+:root[data-theme="morning_clear"] .store-card:hover,
+:root[data-theme="day_clear"] .route-card:hover,
+:root[data-theme="morning_clear"] .route-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(76, 175, 80, 0.3);
+}
+
+:root[data-theme="day_clear"] .theme-input,
+:root[data-theme="morning_clear"] .theme-input {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--input-border);
+  color: var(--text-strong);
+}
+
+:root[data-theme="day_clear"] .theme-input::placeholder,
+:root[data-theme="morning_clear"] .theme-input::placeholder {
+  color: var(--text-muted);
 }
 
 .confirm-container {
@@ -1638,6 +1880,23 @@
   margin-top: 8px;
 }
 
+:root[data-theme="day_clear"] .recommended-route-confirm-section,
+:root[data-theme="morning_clear"] .recommended-route-confirm-section,
+:root[data-theme="day_clear"] .no-results,
+:root[data-theme="morning_clear"] .no-results,
+:root[data-theme="day_clear"] .route-waypoint-item,
+:root[data-theme="morning_clear"] .route-waypoint-item {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--panel-border);
+}
+
+:root[data-theme="day_clear"] .confirm-message,
+:root[data-theme="morning_clear"] .confirm-message,
+:root[data-theme="day_clear"] .route-review-summary,
+:root[data-theme="morning_clear"] .route-review-summary {
+  color: var(--text-muted);
+}
+
 /* 에러 메시지 */
 .error-message {
   color: #ff6b6b;
@@ -1671,6 +1930,13 @@
   color: #4CAF50;
   font-weight: bold;
   margin-bottom: 12px;
+}
+
+/* 밝은 테마 결과 요약 텍스트 색상 통일 */
+:root[data-theme="day_clear"] .result-summary,
+:root[data-theme="morning_clear"] .result-summary {
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .waypoint-result {
@@ -1711,6 +1977,33 @@
   margin-top: 8px;
 }
 
+:root[data-theme="day_clear"] .result-container,
+:root[data-theme="morning_clear"] .result-container,
+:root[data-theme="day_clear"] .waypoint-result,
+:root[data-theme="morning_clear"] .waypoint-result {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--panel-border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="day_clear"] .result-title,
+:root[data-theme="morning_clear"] .result-title,
+:root[data-theme="day_clear"] .waypoint-result-title,
+:root[data-theme="morning_clear"] .waypoint-result-title {
+  color: var(--text-strong);
+}
+
+:root[data-theme="day_clear"] .waypoint-result-theme,
+:root[data-theme="morning_clear"] .waypoint-result-theme,
+:root[data-theme="day_clear"] .waypoint-result-address,
+:root[data-theme="morning_clear"] .waypoint-result-address,
+:root[data-theme="day_clear"] .waypoint-result-phone,
+:root[data-theme="morning_clear"] .waypoint-result-phone,
+:root[data-theme="day_clear"] .candidates-info,
+:root[data-theme="morning_clear"] .candidates-info {
+  color: var(--text-muted);
+}
+
 .route-link {
   display: inline-block;
   padding: 14px 28px;
@@ -1730,6 +2023,23 @@
   color: white;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5);
+}
+
+/* 낮 시간대 경로 확인 버튼 가독성 */
+:root[data-theme="day_clear"] .route-link,
+:root[data-theme="morning_clear"] .route-link {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  border: none !important;
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.45);
+}
+
+:root[data-theme="day_clear"] .route-link:hover,
+:root[data-theme="morning_clear"] .route-link:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.55);
 }
 
 /* 모드 선택 탭 (폼 패널 내부) */

@@ -11,6 +11,8 @@ function LoginSuccess() {
 
   useEffect(() => {
     const accessToken = searchParams.get('access_token')
+    const nextParam = searchParams.get('next')
+    const safeNext = nextParam && nextParam.startsWith('/') ? nextParam : '/'
     
     if (accessToken) {
       // Store access token
@@ -18,7 +20,7 @@ function LoginSuccess() {
       
       // Redirect to home after a brief delay
       setTimeout(() => {
-        navigate('/')
+        navigate(safeNext)
       }, 1000)
     } else {
       // No token - redirect to login
