@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isAuthenticated } from '../utils/auth.js'
+import { isAuthenticated, logout } from '../utils/auth.js'
 import api from '../api/axios.js'
 import { removeBookmark } from '../api/bookmarks.js'
 import { getMyPage } from '../api/mypage.js'
@@ -114,7 +114,20 @@ export default function MyPage() {
           &lt;
         </button>
         <h1 className="mypage-title">마이페이지</h1>
-        <div className="mypage-header-spacer" />
+        <button
+          type="button"
+          onClick={() => logout()}
+          style={{
+            background: 'none',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            padding: '0.4rem 0.7rem',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+          }}
+        >
+          로그아웃
+        </button>
       </header>
 
       <section className="mypage-card glass-card">

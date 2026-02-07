@@ -5,6 +5,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import App from './App.jsx'
 import Login from './pages/Login.jsx'
+import Signup from './pages/Signup.jsx'
 import LoginSuccess from './pages/LoginSuccess.jsx'
 import MyPage from './pages/MyPage.jsx'
 import ProfileEdit from './pages/ProfileEdit.jsx'
@@ -15,6 +16,7 @@ function AppWithRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/login/success" element={<LoginSuccess />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/mypage/profile/edit" element={<ProfileEdit />} />
