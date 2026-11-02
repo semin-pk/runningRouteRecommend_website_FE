@@ -8,7 +8,9 @@ Amplify 실패 로그의 lock 누락을 Linux x64 / Node 22.23.4에서 재현하
 
 최신 운영 백엔드는 Supabase `polerun-test`의 `route-agent` Edge Function입니다. TypeScript 이식, 전용 Secrets 등록, 실제 함수 배포와 직행/다중 경유 API 200 검증을 완료했습니다. 기존 Python 백엔드는 로컬 개발 호환용으로 유지합니다.
 
-연결 코드는 커밋 `126a7e2`로 GitHub의 운영 `main`에 반영했습니다. 현재 `/agent/`의 HTTP 응답은 아직 404이며, Amplify 빌드/배포 상태를 추가 확인해야 합니다. 백엔드 배포 완료와 웹 공개 완료는 구분합니다.
+Amplify 실패를 수정한 커밋 `740d6be`를 GitHub 운영 `main`에 병합/push하고 실제 게시를 확인했습니다. `https://www.run2yourstyle.com/agent/`는 Route Agent를 표시하며 HTML/JS/CSS와 기존 `/` 모두 HTTP 200입니다. 운영 assets는 Supabase API를 사용하고 localhost API 주소를 포함하지 않습니다.
+
+별도 rewrite 자동 적용만 AWS `AccessDeniedException`으로 미완료입니다. `/agent/deployment-info.json`에 `rewrites.applied=false`로 명시됩니다. 현재 `/agent`와 `/agent/`는 Amplify 기본 디렉터리 index 처리로 정상 접속되며, 명시적인 두 rewrite를 추가하려면 콘솔 수동 설정 또는 빌드 역할 권한이 필요합니다.
 
 현재 프로젝트는 초기 구조 세팅을 넘어, 자연어 기반 경유 일정 추천 MVP가 동작하는 단계까지 구현되었습니다. 단일 장소 추천에서 출발해 현재는 사용자의 행동을 분리하고, 각 행동을 장소 유형으로 매핑한 뒤 다중 경유 일정을 계산하는 구조로 확장되었습니다.
 
@@ -26,8 +28,8 @@ Amplify 실패 로그의 lock 누락을 Linux x64 / Node 22.23.4에서 재현하
 - 프론트 결과 카드, 타임라인, 지도 표시: 구현 완료
 - 이동 타임라인 대중교통 상세 표시: 1차 구현 완료
 - 환경변수 로드 경로 고정, API 키 검증 및 웹 오류 안내: 구현 완료
-- `www.run2yourstyle.com/agent/` 배포 준비: 완료, 실제 AWS 배포는 미수행
-- 기존 Amplify 앱 `d26hsuzbpwq4zg` / 러닝 사이트 저장소 통합: 구현 및 빌드 검증 완료, 백엔드 및 콘솔 설정 필요
+- `www.run2yourstyle.com/agent/` 웹 게시: 완료, 실제 HTML/JS/CSS HTTP 200 확인
+- 기존 Amplify 앱 `d26hsuzbpwq4zg` / 러닝 사이트 통합: 완료. 명시적 rewrite 관리 규칙 추가만 AWS 권한 문제로 미완료
 - 초기 통합 코드 GitHub push: `codex/route-agent-integration`, 커밋 `7364649`. 이후 Supabase 연결 버전 추가
 - Supabase Edge Function 이식/배포: 완료. 파이프라인 10개 테스트 및 실제 외부 API 연동 검증 통과
 - 실사용 품질 검증 및 예외 케이스 보강: 진행 필요
@@ -188,11 +190,13 @@ VITE_API_BASE_URL=https://YOUR_BACKEND_HOST npm run build
 
 두 검증 모두 통과한 상태입니다.
 
-배포 준비 검증에서는 테스트용 HTTPS 주소로 `/agent/` 빌드와 Docker 이미지 빌드가 통과했습니다. 운영 CORS preflight/오류 응답, `/health`, 기존 루트 경로를 유지하는 CloudFront 재작성도 확인했습니다. 실제 운영 API 주소와 API 키를 넣은 AWS 배포 및 외부 API 검증은 남아 있습니다.
+초기 배포 준비 검증에서는 테스트용 HTTPS 주소로 `/agent/` 빌드와 Docker 이미지 빌드를 확인했습니다. 이후 Supabase 운영 배포와 실제 외부 API 연동을 검증하고, Amplify 웹 게시까지 확인했습니다. 운영 CORS preflight는 204, 입력 오류는 422이며 origin 헤더를 유지합니다.
 
-추가로 기존 러닝 사이트 저장소에서 단독 빌드와 agent 포함 통합 빌드를 검증했습니다. 기존 루트 HTML/JS/CSS 유지, `dist/agent/` 생성, 지도 키 fallback 및 별도 HTTPS agent API 주소 반영을 확인했습니다. 작업 브랜치는 `codex/route-agent-integration`이며 운영 브랜치 변경과 AWS 콘솔 설정은 수행하지 않았습니다.
+기존 러닝 사이트 저장소에서 단독 빌드와 agent 포함 통합 빌드를 검증했습니다. Linux에서 루트/agent의 깨끗한 설치, 두 앱 빌드, rewrite 4개 테스트와 모노레포 공유 모듈 포함 빌드가 통과했습니다. 수정 브랜치는 `codex/fix-amplify-agent-build`이며 `main`에 병합했습니다. 공개 웹의 데스크톱/모바일 렌더링, 테스트 좌표 위치 선택, 빈 입력 검증과 실제 서울역 위치 검색도 확인했습니다.
 
-2026-11-02 설정 오류 수정 검증에서 빈 키로 외부 요청이 생성되지 않는지, HTTP 503 응답에 원인 안내와 CORS 헤더가 유지되는지, 정상 키의 인증 헤더가 보존되는지 확인했습니다. 실행 중인 로컬 백엔드에서도 키 누락 안내 응답을 확인했습니다. 현재 `.env`의 키가 비어 있어 실제 외부 API를 통한 경로 검색 검증은 키 입력 후 진행해야 합니다.
+공개 웹에서 서울역 20:00 직행 일정을 요청해 HTTP 200과 실제 결과 렌더링을 확인했습니다. 임의 경유지 없이 19:16 출발, 19:50 도착, 이동 34분을 반환했으며, 도보/1호선 예상 탑승 상세와 카카오 지도가 표시됐습니다. 데스크톱/모바일에서 가로 넘침과 브라우저 런타임 오류는 없었습니다.
+
+2026-11-02 초기 설정 오류 검증에서 빈 키의 외부 요청 차단, HTTP 503 안내/CORS 유지와 정상 인증 헤더를 확인했습니다. 이후 운영 전용 secrets를 설정하고 실제 외부 API를 이용한 직행/다중 경유 요청이 HTTP 200으로 완료되는 것을 확인했습니다.
 
 mock 경로를 사용해 다음도 확인했습니다.
 
@@ -203,7 +207,7 @@ mock 경로를 사용해 다음도 확인했습니다.
 
 ## 남은 과제
 
-Supabase backend의 운영 코드는 `supabase/functions/route-agent/`이며 API 주소는 `https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent`입니다. 신규 프로젝트는 무료 한도로 생성하지 못해, 사용자가 선택한 기존 `polerun-test`에 함수만 추가했습니다. 기존 DB/함수는 변경하지 않았습니다. 프론트 Amplify 반영 상태는 실제 `/agent/` 응답으로 별도 확인해야 합니다.
+Supabase backend의 운영 코드는 `supabase/functions/route-agent/`이며 API 주소는 `https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent`입니다. 신규 프로젝트는 무료 한도로 생성하지 못해, 사용자가 선택한 기존 `polerun-test`에 함수만 추가했습니다. 기존 DB/함수 코드는 유지했습니다. 프론트 게시까지 확인했고, 명시적 Amplify rewrite 관리 규칙 추가만 권한 확보 또는 콘솔 수동 설정이 남아 있습니다.
 
 ### 실제 API 기반 시나리오 검증
 

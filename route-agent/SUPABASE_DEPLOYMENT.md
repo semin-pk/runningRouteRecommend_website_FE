@@ -13,7 +13,7 @@
 
 기존 네 함수의 코드 해시와 JWT 설정이 그대로인 것을 확인했습니다. 프로젝트 Secrets 갱신 시 기존 함수의 런타임 revision이 증가할 수 있지만 코드 변경은 아닙니다.
 
-Supabase 함수의 상태 확인과 실제 직행/다중 경유 요청은 HTTP 200으로 검증했습니다. 프론트 연결 코드는 `126a7e2`로 운영 `main`에 반영했으며, 웹 `/agent/`는 아직 404라 Amplify의 해당 커밋 배포 상태를 확인해야 합니다.
+Supabase 함수의 상태 확인과 실제 직행/다중 경유 요청은 HTTP 200으로 검증했습니다. Amplify lock 오류 수정 커밋 `740d6be`를 운영 `main`에 반영했고 `https://www.run2yourstyle.com/agent/`에서 실제 웹 게시, 위치 검색과 경로 요청/타임라인/지도 표시를 확인했습니다. 명시적 rewrite 관리 규칙 추가는 AWS 권한 부족으로 미완료이며, 현재는 기본 디렉터리 index 처리로 접속됩니다. 자세한 배포 결과는 [PROJECT_STATUS.md](./PROJECT_STATUS.md)를 확인합니다.
 
 Supabase Edge Functions는 TypeScript/Deno로 실행하므로 `supabase/functions/route-agent/`에 기존 Python 파이프라인을 이식했습니다. Python `backend/`는 로컬 실행 호환용으로 남겨둡니다. 별도 EC2/ECS 서버는 필요하지 않습니다. [Edge Functions 개요](https://supabase.com/docs/guides/functions)
 

@@ -4,6 +4,14 @@
 
 운영 백엔드는 Supabase 프로젝트 `polerun-test` (`scdpsgypefxtjbrnmovk`)의 Edge Function `route-agent`입니다. 기본 API 주소는 `https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent`이며 Python 서버를 별도로 만들 필요가 없습니다.
 
+## 현재 배포 결과
+
+2026-11-02 수정 커밋 `740d6be`를 운영 `main`에 병합/push하고 공개 웹에서 배포를 확인했습니다. `/agent/`, `/agent/index.html`, agent JS/CSS와 기존 `/`는 HTTP 200입니다. `/agent`는 `/agent/`로 이동합니다.
+
+`/agent/deployment-info.json`의 빌드 커밋도 일치합니다. 단, rewrite 관리 API는 기존 빌드 역할의 `AccessDeniedException`으로 거부되어 `rewrites.applied=false`입니다. 현재 진입은 기본 디렉터리 index 처리로 동작합니다. 별도 rewrite 적용을 완료한 것으로 판단하지 않으며, 아래 두 규칙은 콘솔에서 수동 추가하거나 대상 앱에 한정해 빌드 역할 권한을 확보한 뒤 다시 실행해야 합니다.
+
+공개 웹의 실제 카카오 위치 검색과 Supabase 경로 요청도 확인했습니다. 서울역 20:00 직행 예시는 HTTP 200, 임의 경유지 없음, 19:16 출발/19:50 도착/이동 34분이며 도보/1호선 상세와 지도가 표시됩니다. 데스크톱 1440px 및 모바일 390px 검증에서 가로 넘침이나 런타임 오류는 없었습니다.
+
 ## 빌드 구조
 
 기존 사이트의 소스, 라우터와 Vite 설정은 유지합니다. `npm run build`는 기존 사이트를 먼저 빌드한 뒤, 설정된 경우 route-agent를 추가합니다.

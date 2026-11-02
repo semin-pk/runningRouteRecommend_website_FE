@@ -6,11 +6,13 @@
 
 운영 백엔드는 Supabase Edge Function으로 전환했습니다. 최신 운영 절차와 실제 endpoint는 [SUPABASE_DEPLOYMENT.md](./SUPABASE_DEPLOYMENT.md)에 정리되어 있습니다. 프론트는 기존 Amplify 앱의 `/agent/`에 통합합니다.
 
-사용자가 기존 사이트의 Amplify 앱 ID `d26hsuzbpwq4zg`와 GitHub 저장소 `semin-pk/runningRouteRecommend_website_FE`를 제공했습니다. 해당 저장소의 `codex/route-agent-integration` 작업 브랜치에서 기존 사이트와 Route Agent를 함께 빌드하는 통합 구현 및 검증을 마쳤습니다. 제공된 앱 ID의 AWS 관리 권한으로 설정을 직접 조회하거나 변경한 상태는 아닙니다.
+사용자가 기존 사이트의 Amplify 앱 ID `d26hsuzbpwq4zg`와 GitHub 저장소 `semin-pk/runningRouteRecommend_website_FE`를 제공했습니다. 기존 사이트와 Route Agent를 함께 빌드하는 통합 코드를 운영 `main`에 반영하고 공개 웹에서 확인했습니다. AWS 앱 설정을 직접 변경할 관리 권한은 확보되지 않았습니다.
 
 초기 통합 코드는 커밋 `7364649`로 [GitHub 작업 브랜치](https://github.com/semin-pk/runningRouteRecommend_website_FE/tree/codex/route-agent-integration)에 push했습니다. 이후 Supabase 연결 버전을 추가했으며 프론트의 실제 게시 여부는 운영 URL 응답으로 확인합니다.
 
-2026-11-02 Supabase 연결 코드 `126a7e2`를 작업 브랜치와 운영 `main`에 반영했습니다. Supabase 함수는 ACTIVE이며 실제 API 요청은 성공했습니다. 현재 웹 `/agent/`는 404로 남아 있어 Amplify의 해당 커밋 빌드/배포 상태 확인이 필요합니다. GitHub의 Amplify webhook은 활성 상태이고 최근 응답은 202이나, 이것만으로 빌드 성공을 확인할 수는 없습니다.
+2026-11-02 Supabase 연결 코드 `126a7e2`의 Amplify 빌드가 agent lock 파일 누락으로 실패한 것을 재현했습니다. 수정 커밋 `740d6be`를 `main`에 병합/push한 뒤 실제 배포를 확인했습니다. `https://www.run2yourstyle.com/agent/`, `/agent/index.html`, JS/CSS와 기존 `/`가 모두 HTTP 200입니다. `/agent`는 `/agent/`로 이동해 Route Agent를 표시합니다.
+
+배포 메타데이터 `/agent/deployment-info.json`의 커밋은 `740d6be`입니다. rewrite 자동 적용은 빌드 역할의 `AccessDeniedException`으로 실패했으며 `rewrites.applied=false`입니다. 현재 접속은 Amplify의 기본 디렉터리 index 처리로 동작합니다. 별도 `/agent`, `/agent/` 200 rewrite 적용은 콘솔 수동 추가 또는 빌드 역할의 `amplify:GetApp`/`amplify:UpdateApp` 권한 확보가 필요합니다. 웹 게시 성공과 관리 규칙 적용 성공을 구분합니다.
 
 ## 운영 백엔드: Supabase
 
@@ -148,16 +150,16 @@ VITE_API_BASE_URL=
 
 운영 빌드는 `frontend/.env.production`에 `VITE_KAKAO_MAP_KEY`와 실제 HTTPS `VITE_API_BASE_URL`을 설정합니다. API 주소 누락 또는 HTTP 주소이면 운영 빌드를 중단합니다. 운영 assets 기본 경로는 `/agent/`, 개발 서버 경로는 `/`입니다.
 
-## 배포 준비
+## 배포 현황
 
-- 기존 도메인이 CloudFront/S3를 사용하며 `/agent/`가 404인 것을 확인했습니다.
+- 초기 `/agent/` 404와 Amplify 빌드 실패를 해결하고 운영 URL의 Route Agent 응답을 확인했습니다.
 - 기존 사이트의 배포 플랫폼은 사용자 확인에 따라 Amplify로 정리했습니다. 관리형 S3/CloudFront를 직접 수정하는 대신 기존 Amplify 빌드에 `dist/agent/`를 추가합니다.
 - 로컬 `runningRouteRecommend_website_FE` 저장소에 기존 사이트 빌드를 유지하는 `build:site`, agent 빌드 `build:agent`, `amplify.yml`과 진입 경로 rewrite 예시를 추가했습니다.
 - 기존 러닝 사이트의 `VITE_BACKEND_URL`은 유지합니다. agent API는 배포된 Supabase 함수가 기본값이며 `VITE_ROUTE_AGENT_API_BASE_URL`로 override할 수 있습니다.
-- 백엔드 서버가 없으므로 ECS Express Mode 기반 배포 절차와 `deployment/ecs-express-service.example.json`을 추가했습니다. 실제 리소스를 생성하지 않았습니다.
+- 초기 대안이던 ECS Express Mode 문서와 `deployment/ecs-express-service.example.json`은 참고용으로 남깁니다. 실제 운영 백엔드는 Supabase이며 ECS 리소스는 만들지 않았습니다.
 - `backend/Dockerfile`은 non-root 사용자로 포트 8000에서 실행합니다. 이미지에는 `.env`나 API 키를 포함하지 않습니다.
 - `deployment/cloudfront-agent-entry.js`는 `/agent`와 `/agent/`만 `/agent/index.html`로 재작성합니다. 기존 함수가 있으면 해당 조건을 병합해야 합니다.
-- Supabase 함수 배포와 전용 Secrets 설정은 완료했습니다. 프론트는 운영 브랜치 재배포 후 `/agent/`의 실제 응답을 확인해야 합니다. 별도 API 주소 설정이 없어도 Supabase endpoint를 기본값으로 사용합니다.
+- Supabase 함수 배포와 전용 Secrets 설정, Amplify 프론트 게시를 완료했습니다. 운영 JS에 Supabase endpoint가 포함되고 localhost API 주소가 없는 것을 확인했습니다.
 
 ## 외부 API 로그
 
@@ -194,12 +196,15 @@ VITE_API_BASE_URL=
 - mock 경로로 자동 출발 시간과 사용자 지정 출발 시간 계산을 확인했습니다.
 - API 키가 빈 경우 5개 외부 API 호출 지점 모두 HTTP 클라이언트 생성 전에 차단되는 것을 확인했습니다.
 - 누락/형식 오류의 HTTP 503 응답, CORS 헤더 유지, 정상 키의 인증 헤더 보존을 mock으로 확인했습니다.
-- 실행 중인 로컬 백엔드에 요청해 `OPENAI_API_KEY` 누락 안내가 반환되는 것을 확인했습니다. 실제 키가 비어 있어 외부 API를 이용한 경로 검색은 이번 검증에 포함하지 않았습니다.
+- 초기 로컬 검증에서는 빈 키의 `OPENAI_API_KEY` 누락 안내를 확인했습니다. 이후 운영 secrets를 등록하고 실제 Supabase API의 직행/다중 경유 요청을 검증했습니다.
 - Docker 이미지 빌드 및 실제 컨테이너 실행 통과. `/health` 200, 운영 CORS preflight와 오류 응답, Asia/Seoul 시간 계산, non-root 실행 및 `.env` 미포함을 확인했습니다. 테스트 컨테이너는 종료했습니다.
 - CloudFront 진입 경로 재작성을 검증했으며, 운영 API 주소 누락/HTTP 주소 빌드가 차단되는 것을 확인했습니다.
 - 기존 러닝 사이트만 빌드하는 경우와 agent를 함께 빌드하는 경우를 모두 확인했습니다. 두 경우의 기존 루트 HTML이 동일하며 각각의 JS/CSS 파일이 유효한 경로에 존재합니다.
 - Amplify 통합 빌드에서 기존 지도 키 재사용, 별도 HTTPS agent API 주소 삽입 및 localhost API 미포함을 확인했습니다. 검증에는 테스트용 주소를 사용했으며 실제 외부 API 요청은 수행하지 않았습니다.
 - Supabase TypeScript 파이프라인 10개 테스트를 통과했습니다. 실제 배포 함수의 직행/다중 경유 요청이 모두 HTTP 200으로 완료되는 것을 확인했습니다.
+- 공개 웹의 데스크톱(1440px)/모바일(390px) 브라우저에서 렌더링, 테스트 좌표를 이용한 위치 선택, 빈 입력 검증, 가로 넘침 없음을 확인했습니다. 카카오의 실제 서울역 위치 검색도 통과했습니다.
+- 공개 웹에서 실제 `POST /api/query` 요청이 HTTP 200으로 완료됐습니다. 서울역 20:00 직행 요청에서 tasks/stops가 비어 있고 19:16 출발, 19:50 도착, 총 34분 이동과 도보/1호선 상세 타임라인 및 카카오 지도가 표시됐습니다. 브라우저 런타임 오류는 없었습니다.
+- 운영 도메인 CORS preflight는 HTTP 204, 잘못된 입력은 HTTP 422이며 두 응답 모두 올바른 CORS origin을 유지합니다.
 
 ## 앞으로 구현 시 문서 최신화 규칙
 
