@@ -4,6 +4,8 @@
 
 ## 전체 진척도
 
+Amplify 실패 로그의 lock 누락을 Linux x64 / Node 22.23.4에서 재현하고 수정했습니다. 동일 환경의 깨끗한 `npm ci`와 통합 빌드가 통과했습니다. 사용자가 지정한 `Cursor/rrR` 모노레포 FE에도 수정사항을 반영하고 상위 공유 패키지를 포함해 빌드를 확인했습니다. rewrite 자동 적용은 Amplify 빌드 역할 권한으로 수행하고 적용 여부를 배포 메타데이터로 확인합니다.
+
 최신 운영 백엔드는 Supabase `polerun-test`의 `route-agent` Edge Function입니다. TypeScript 이식, 전용 Secrets 등록, 실제 함수 배포와 직행/다중 경유 API 200 검증을 완료했습니다. 기존 Python 백엔드는 로컬 개발 호환용으로 유지합니다.
 
 연결 코드는 커밋 `126a7e2`로 GitHub의 운영 `main`에 반영했습니다. 현재 `/agent/`의 HTTP 응답은 아직 404이며, Amplify 빌드/배포 상태를 추가 확인해야 합니다. 백엔드 배포 완료와 웹 공개 완료는 구분합니다.

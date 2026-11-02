@@ -1,0 +1,13 @@
+**
+!runningRouteRecommend_website_FE
+!runningRouteRecommend_website_FE/**
+!packages
+!packages/shared
+!packages/shared/**
+**/.git
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__

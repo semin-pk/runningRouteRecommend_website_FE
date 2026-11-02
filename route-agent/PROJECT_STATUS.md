@@ -183,6 +183,12 @@ VITE_API_BASE_URL=
 
 ## 확인된 검증
 
+- 사용자 제공 Amplify 실패 로그의 `@emnapi/core@1.11.3`, `@emnapi/runtime@1.11.3` 누락을 Linux x64 / Node 22.23.4 / npm 10.9.9에서 동일하게 재현했습니다.
+- 기존 프레임워크 버전을 유지하도록 agent 의존성을 고정하고 Linux에서 lock 파일을 재생성해 깨끗한 `npm ci` 통과를 확인했습니다.
+- Amplify 빌드에서 기존 앱 규칙을 보존하면서 agent 진입 규칙을 적용/재조회하는 스크립트와 4개 테스트를 추가했습니다. 실제 AWS 권한과 적용 결과는 `/agent/deployment-info.json` 및 배포 후 HTTP 응답으로 확인합니다.
+- 사용자 지정 작업 경로 `/Users/parksemin/Documents/Cursor/rrR/runningRouteRecommend_website_FE`에도 배포 설정과 agent 소스를 반영했습니다. 기존 날씨/API 유틸 소스와 상위 BE/모바일 변경사항은 보존합니다.
+- 해당 로컬 FE의 상위 `packages/shared` 의존성을 포함한 모노레포 컨텍스트에서 Linux 운영 빌드와 rewrite 4개 테스트가 통과했습니다. Amplify 연결 FE 저장소와 로컬 모노레포의 서로 다른 기존 소스는 덮어쓰지 않았습니다.
+
 - `backend/.venv/bin/python -m py_compile backend/agents.py backend/main.py` 통과
 - HTTPS `VITE_API_BASE_URL`을 지정한 운영 빌드 통과 (`/agent/` assets 및 localhost API 미포함 확인)
 - mock 경로로 자동 출발 시간과 사용자 지정 출발 시간 계산을 확인했습니다.

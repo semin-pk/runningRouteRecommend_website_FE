@@ -1,0 +1,15 @@
+.git
+**/.git
+.env
+.env.*
+**/.env
+**/.env.*
+node_modules
+**/node_modules
+dist
+**/dist
+route-agent/frontend/node_modules
+route-agent/frontend/dist
+route-agent/backend/.env
+route-agent/backend/.venv
+route-agent/supabase/.temp

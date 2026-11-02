@@ -20,6 +20,7 @@
     "vite": "^4.5.3"
   },
   "devDependencies": {
+    "@aws-sdk/client-amplify": "3.1161.0",
     "@eslint/js": "^9.36.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",

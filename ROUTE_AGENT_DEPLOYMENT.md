@@ -41,6 +41,36 @@ OpenAI/Kakao REST/T map 키는 Amplify의 프론트 빌드 환경변수에 넣�
 4. Amplify의 Rewrites and redirects에 `amplify-agent-rules.json`의 두 규칙을 기존 SPA fallback 규칙보다 앞에 추가합니다. 기존 로그인/마이페이지 등의 규칙은 유지합니다.
 5. 새 배포가 성공하면 `/`, `/login`, `/agent/`, `/agent/index.html`과 두 앱의 assets를 확인합니다.
 
+## Rewrite 자동 적용
+
+`amplify.yml`은 프론트 빌드 뒤 `scripts/configure-amplify-agent.mjs`를 실행합니다. 운영 `main` 빌드에서 Amplify의 기존 빌드 역할로 현재 앱 규칙을 읽고, `/agent`와 `/agent/`만 `/agent/index.html`로 연결합니다. 기존 다른 규칙은 유지하며 변경 후 다시 읽어 적용 결과를 검증합니다. 이미 같은 규칙이면 업데이트를 생략합니다.
+
+빌드 역할에는 대상 앱에 대한 `amplify:GetApp`, `amplify:UpdateApp` 권한이 필요합니다. 스크립트는 IAM 역할이나 권한을 임의로 생성하지 않습니다. 권한이 없으면 `needs-aws-permission`을 기록하고 정적 파일 배포는 계속 진행합니다. 이 상태를 rewrite 적용 성공으로 판단하면 안 됩니다.
+
+`/agent/deployment-info.json`에 빌드 커밋과 rewrite 적용 결과를 기록합니다. API 키나 AWS 자격증명은 포함하지 않습니다. `rewrites.applied=true`가 관리 규칙 적용 확인이고, 실제 URL 응답은 배포 후 별도로 확인합니다.
+
+## Linux 빌드 검증
+
+2026-11-02 실패 원인은 Node 설치가 아닌 agent의 lock 파일 누락이었습니다. Amplify와 같은 Linux x64 / Node 22.23.4 / npm 10에서 `@emnapi/core@1.11.3`, `@emnapi/runtime@1.11.3` 누락을 재현했습니다. 기존 프레임워크 버전을 유지한 채 의존성 버전을 고정하고 해당 환경에서 lock 파일을 재생성했습니다.
+
+```bash
+docker build --platform linux/amd64 \
+  -f deployment/amplify-build.Dockerfile \
+  -t route-agent-amplify-check .
+```
+
+이 검증은 루트/agent의 깨끗한 `npm ci`, rewrite 병합 테스트, 통합 운영 빌드를 수행합니다. 실제 `.env`와 자격증명은 이미지에 포함하지 않습니다.
+
+`Cursor/rrR/runningRouteRecommend_website_FE`는 상위 `packages/shared`를 사용하는 모노레포의 FE 폴더입니다. 해당 작업 폴더를 검증할 때는 `rrR/`에서 아래 명령을 사용합니다. 기존 공유 모듈과 FE 소스를 수정할 필요가 없습니다.
+
+```bash
+docker build --platform linux/amd64 \
+  -f runningRouteRecommend_website_FE/deployment/amplify-build.monorepo.Dockerfile \
+  -t route-agent-monorepo-check .
+```
+
+별도 Docker ignore 파일로 FE와 공유 소스만 전달하며 BE/모바일 변경이나 실제 `.env`는 포함하지 않습니다. 실제 Amplify 로그가 clone하는 저장소는 별도의 `semin-pk/runningRouteRecommend_website_FE`이므로 배포 push는 해당 저장소에만 수행합니다.
+
 `/agent/<*>` 전체를 index.html로 rewrite하지 않습니다. 그러면 JS/CSS 요청까지 HTML로 바뀔 수 있습니다. `agent/assets/`의 파일은 그대로 제공합니다. [Amplify rewrite 순서](https://docs.aws.amazon.com/amplify/latest/userguide/redirects.html), [빌드 설정](https://docs.aws.amazon.com/amplify/latest/userguide/yml-specification-syntax.html)
 
 ## Supabase 백엔드
