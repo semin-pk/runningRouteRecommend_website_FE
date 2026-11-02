@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run build:site && npm run build:agent",
+    "build:site": "vite build",
+    "build:agent": "node scripts/build-route-agent.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

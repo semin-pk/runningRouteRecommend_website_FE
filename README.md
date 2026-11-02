@@ -2,6 +2,8 @@
 
 FastAPI + React로 구축된 러닝 코스 추천 서비스입니다.
 
+`www.run2yourstyle.com/agent/`에 Route Agent를 함께 배포하는 방법은 [ROUTE_AGENT_DEPLOYMENT.md](./ROUTE_AGENT_DEPLOYMENT.md)에 정리되어 있습니다.
+
 ## 기능
 
 - 카카오 지도에서 클릭하여 러닝 시작 위치 설정

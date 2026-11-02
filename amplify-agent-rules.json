@@ -1,0 +1,14 @@
+[
+  {
+    "source": "/agent",
+    "target": "/agent/index.html",
+    "status": "200",
+    "condition": null
+  },
+  {
+    "source": "/agent/",
+    "target": "/agent/index.html",
+    "status": "200",
+    "condition": null
+  }
+]

@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
+!.env.example
+!.env.production.example
+.venv/
+__pycache__/
+*.pyc
+route-agent/deployment/ecs-express-service.json

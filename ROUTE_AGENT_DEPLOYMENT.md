@@ -1,0 +1,68 @@
+# 기존 Amplify 사이트에 Route Agent 추가
+
+대상 앱은 사용자 제공 Amplify ID `d26hsuzbpwq4zg`, 도메인은 `https://www.run2yourstyle.com`입니다. AWS 계정에서 앱/브랜치 설정을 직접 조회한 상태는 아닙니다.
+
+## 빌드 구조
+
+기존 사이트의 소스, 라우터와 Vite 설정은 유지합니다. `npm run build`는 기존 사이트를 먼저 빌드한 뒤, 설정된 경우 route-agent를 추가합니다.
+
+```text
+dist/
+  index.html          # 기존 러닝 사이트
+  assets/             # 기존 사이트 JS/CSS
+  agent/
+    index.html        # Route Agent
+    assets/           # Route Agent JS/CSS
+```
+
+두 페이지는 각각 React와 스타일을 로드합니다. agent 페이지는 `/agent/index.html`이며, 진입 URL `/agent`와 `/agent/`는 Amplify rewrite로 연결합니다. 브라우저에서 이동할 때는 `<a href="/agent/">`처럼 일반 링크를 사용합니다.
+
+`route-agent/`에는 기존 로컬 프로젝트에서 가져온 프론트/백엔드 소스가 들어 있습니다. 실제 `.env`, API 키, `.venv`, `node_modules`, 이전 빌드 결과는 복사하지 않았습니다. GitHub 배포용 소스를 수정할 때는 이 디렉토리를 사용합니다.
+
+## Amplify 설정
+
+1. 앱 `d26hsuzbpwq4zg`의 기존 도메인 및 배포 브랜치 연결을 유지합니다.
+2. 저장소의 `amplify.yml`을 빌드 설정으로 사용합니다. 아티팩트 디렉토리는 `dist`이며 Node.js 22를 사용합니다.
+3. 환경변수를 다음처럼 설정하고 다시 빌드합니다.
+
+| 변수 | 값 |
+| --- | --- |
+| `VITE_BACKEND_URL` | 기존 러닝 서비스 백엔드 주소. 기존 값 유지 |
+| `VITE_KAKAO_JS_KEY` | 기존 카카오 JavaScript 키. 기존 값 유지 |
+| `VITE_ROUTE_AGENT_API_BASE_URL` | 새 FastAPI 서버의 실제 HTTPS 주소. `/api/query`는 붙이지 않음 |
+| `VITE_KAKAO_MAP_KEY` | 선택 항목. 미설정 시 기존 `VITE_KAKAO_JS_KEY` 재사용 |
+
+`VITE_ROUTE_AGENT_API_BASE_URL`을 비워두면 기존 사이트만 빌드합니다. 백엔드가 아직 없는 상태에서 기존 사이트를 계속 배포할 수 있도록 한 동작이며, 이 경우 `/agent`는 아직 활성화되지 않습니다. 주소가 설정되면 agent를 함께 빌드하고, HTTP 주소나 잘못된 주소는 빌드를 실패시킵니다.
+
+OpenAI/Kakao REST/T map 키는 Amplify의 프론트 빌드 환경변수에 넣지 않습니다. 해당 키는 백엔드의 런타임 환경변수로 설정합니다.
+
+4. Amplify의 Rewrites and redirects에 `amplify-agent-rules.json`의 두 규칙을 기존 SPA fallback 규칙보다 앞에 추가합니다. 기존 로그인/마이페이지 등의 규칙은 유지합니다.
+5. 새 배포가 성공하면 `/`, `/login`, `/agent/`, `/agent/index.html`과 두 앱의 assets를 확인합니다.
+
+`/agent/<*>` 전체를 index.html로 rewrite하지 않습니다. 그러면 JS/CSS 요청까지 HTML로 바뀔 수 있습니다. `agent/assets/`의 파일은 그대로 제공합니다. [Amplify rewrite 순서](https://docs.aws.amazon.com/amplify/latest/userguide/redirects.html), [빌드 설정](https://docs.aws.amazon.com/amplify/latest/userguide/yml-specification-syntax.html)
+
+## FastAPI 백엔드
+
+이 저장소를 Amplify 정적 호스팅에 올리는 것만으로 Python 서버가 실행되지는 않습니다. 기존 러닝 서비스 백엔드와 route-agent 백엔드는 별도 서비스입니다.
+
+백엔드는 `route-agent/backend/Dockerfile`로 컨테이너화되어 있습니다. ECS Express Mode 등의 Python 실행 환경에 배포한 뒤 다음을 설정합니다.
+
+```text
+OPENAI_API_KEY
+KAKAO_REST_API_KEY
+TMAP_APP_KEY
+CORS_ORIGINS=https://www.run2yourstyle.com
+```
+
+포트는 `8000`, 헬스 체크는 `/health`, 요청 엔드포인트는 `/api/query`입니다. 환경별 런타임 secrets 설정과 Docker/ECS 절차는 `route-agent/DEPLOYMENT.md`에 있습니다.
+
+## 로컬 확인
+
+```bash
+npm ci
+npm --prefix route-agent/frontend ci
+VITE_ROUTE_AGENT_API_BASE_URL=https://YOUR_BACKEND_HOST npm run build
+npm run preview -- --host 127.0.0.1 --port 4173
+```
+
+`http://127.0.0.1:4173/`와 `http://127.0.0.1:4173/agent/`에서 각 페이지를 확인합니다. 실제 경로 검색은 유효한 백엔드 주소와 API 키가 있어야 합니다.

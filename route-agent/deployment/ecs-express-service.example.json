@@ -1,0 +1,27 @@
+{
+  "serviceName": "route-agent-backend",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/route-agent-task-execution",
+  "infrastructureRoleArn": "arn:aws:iam::ACCOUNT_ID:role/route-agent-infrastructure",
+  "healthCheckPath": "/health",
+  "cpu": "256",
+  "memory": "512",
+  "cpuArchitecture": "X86_64",
+  "primaryContainer": {
+    "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/route-agent-backend:latest",
+    "containerPort": 8000,
+    "environment": [
+      {"name": "CORS_ORIGINS", "value": "https://www.run2yourstyle.com"}
+    ],
+    "secrets": [
+      {"name": "OPENAI_API_KEY", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/route-agent/OPENAI_API_KEY"},
+      {"name": "KAKAO_REST_API_KEY", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/route-agent/KAKAO_REST_API_KEY"},
+      {"name": "TMAP_APP_KEY", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/route-agent/TMAP_APP_KEY"}
+    ]
+  },
+  "scalingTarget": {
+    "minTaskCount": 1,
+    "maxTaskCount": 2,
+    "autoScalingMetric": "AVERAGE_CPU",
+    "autoScalingTargetValue": 60
+  }
+}
