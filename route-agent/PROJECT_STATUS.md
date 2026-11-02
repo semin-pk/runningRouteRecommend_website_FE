@@ -10,6 +10,8 @@
 
 초기 통합 코드는 커밋 `7364649`로 [GitHub 작업 브랜치](https://github.com/semin-pk/runningRouteRecommend_website_FE/tree/codex/route-agent-integration)에 push했습니다. 이후 Supabase 연결 버전을 추가했으며 프론트의 실제 게시 여부는 운영 URL 응답으로 확인합니다.
 
+2026-11-02 Supabase 연결 코드 `126a7e2`를 작업 브랜치와 운영 `main`에 반영했습니다. Supabase 함수는 ACTIVE이며 실제 API 요청은 성공했습니다. 현재 웹 `/agent/`는 404로 남아 있어 Amplify의 해당 커밋 빌드/배포 상태 확인이 필요합니다. GitHub의 Amplify webhook은 활성 상태이고 최근 응답은 202이나, 이것만으로 빌드 성공을 확인할 수는 없습니다.
+
 ## 운영 백엔드: Supabase
 
 - 새 프로젝트 생성은 무료 활성 프로젝트 2개 한도로 실패했고, 사용자 선택에 따라 기존 `polerun-test` (`scdpsgypefxtjbrnmovk`)를 사용합니다.
@@ -23,6 +25,7 @@
 - 지하철/버스 시각은 소요시간 기반 예상이며 `time_type=estimated`와 UI의 '예상' 표시로 구분합니다.
 - 로그인 없는 기존 호출 흐름을 유지하는 공개 함수입니다. CORS를 인증 수단으로 사용하지 않으며 요청이나 위치를 DB에 저장하지 않습니다.
 - 실제 `/health` 200과 서울역 직행/식당→카페 경유 요청 200을 확인했습니다. 식당 후보에서는 제과·디저트 전문 카테고리를 제외합니다.
+- 기존 네 함수의 코드 해시와 JWT 설정이 이전과 같은 것을 확인했습니다. 프로젝트 Secrets 갱신으로 런타임 revision은 증가할 수 있으며, 이를 소스 변경으로 판단하지 않습니다.
 
 ## 현재 목표
 

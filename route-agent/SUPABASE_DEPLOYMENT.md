@@ -11,6 +11,10 @@
 
 새 프로젝트 생성은 무료 활성 프로젝트 2개 한도로 실패했습니다. 사용자가 선택한 기존 `polerun-test`에 함수 하나와 전용 secrets만 추가합니다. 테이블, 데이터, 기존 함수, 인증 설정 및 공통 secrets는 변경하지 않습니다.
 
+기존 네 함수의 코드 해시와 JWT 설정이 그대로인 것을 확인했습니다. 프로젝트 Secrets 갱신 시 기존 함수의 런타임 revision이 증가할 수 있지만 코드 변경은 아닙니다.
+
+Supabase 함수의 상태 확인과 실제 직행/다중 경유 요청은 HTTP 200으로 검증했습니다. 프론트 연결 코드는 `126a7e2`로 운영 `main`에 반영했으며, 웹 `/agent/`는 아직 404라 Amplify의 해당 커밋 배포 상태를 확인해야 합니다.
+
 Supabase Edge Functions는 TypeScript/Deno로 실행하므로 `supabase/functions/route-agent/`에 기존 Python 파이프라인을 이식했습니다. Python `backend/`는 로컬 실행 호환용으로 남겨둡니다. 별도 EC2/ECS 서버는 필요하지 않습니다. [Edge Functions 개요](https://supabase.com/docs/guides/functions)
 
 ## 런타임 Secrets
