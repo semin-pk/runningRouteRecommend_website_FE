@@ -4,6 +4,8 @@
 
 ## 전체 진척도
 
+최신 운영 백엔드는 Supabase `polerun-test`의 `route-agent` Edge Function입니다. TypeScript 이식, 전용 Secrets 등록, 실제 함수 배포와 직행/다중 경유 API 200 검증을 완료했습니다. 기존 Python 백엔드는 로컬 개발 호환용으로 유지합니다.
+
 현재 프로젝트는 초기 구조 세팅을 넘어, 자연어 기반 경유 일정 추천 MVP가 동작하는 단계까지 구현되었습니다. 단일 장소 추천에서 출발해 현재는 사용자의 행동을 분리하고, 각 행동을 장소 유형으로 매핑한 뒤 다중 경유 일정을 계산하는 구조로 확장되었습니다.
 
 체감 진척도는 다음과 같습니다.
@@ -22,6 +24,8 @@
 - 환경변수 로드 경로 고정, API 키 검증 및 웹 오류 안내: 구현 완료
 - `www.run2yourstyle.com/agent/` 배포 준비: 완료, 실제 AWS 배포는 미수행
 - 기존 Amplify 앱 `d26hsuzbpwq4zg` / 러닝 사이트 저장소 통합: 구현 및 빌드 검증 완료, 백엔드 및 콘솔 설정 필요
+- 초기 통합 코드 GitHub push: `codex/route-agent-integration`, 커밋 `7364649`. 이후 Supabase 연결 버전 추가
+- Supabase Edge Function 이식/배포: 완료. 파이프라인 10개 테스트 및 실제 외부 API 연동 검증 통과
 - 실사용 품질 검증 및 예외 케이스 보강: 진행 필요
 
 ## 구현 완료 항목
@@ -194,6 +198,8 @@ mock 경로를 사용해 다음도 확인했습니다.
 - 지하철/버스/도보 leg 상세 데이터 생성
 
 ## 남은 과제
+
+Supabase backend의 운영 코드는 `supabase/functions/route-agent/`이며 API 주소는 `https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent`입니다. 신규 프로젝트는 무료 한도로 생성하지 못해, 사용자가 선택한 기존 `polerun-test`에 함수만 추가했습니다. 기존 DB/함수는 변경하지 않았습니다. 프론트 Amplify 반영 상태는 실제 `/agent/` 응답으로 별도 확인해야 합니다.
 
 ### 실제 API 기반 시나리오 검증
 

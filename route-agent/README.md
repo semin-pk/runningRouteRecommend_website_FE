@@ -6,6 +6,8 @@
 
 `https://www.run2yourstyle.com/agent/` 배포 방법은 [DEPLOYMENT.md](./DEPLOYMENT.md)에 정리되어 있습니다. 프론트 운영 빌드는 `/agent/` 경로를 사용하며, 백엔드 실행 환경은 별도로 생성해야 합니다.
 
+운영 백엔드는 Supabase Edge Function `route-agent`로 전환했습니다. 현재 연결/배포 방법은 [SUPABASE_DEPLOYMENT.md](./SUPABASE_DEPLOYMENT.md)를 확인하세요. 아래 Python 명령은 로컬 개발용입니다.
+
 ## 1. 환경변수 설정
 
 백엔드 API 키를 설정합니다.

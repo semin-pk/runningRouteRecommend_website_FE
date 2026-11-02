@@ -127,6 +127,7 @@ function TravelLine({ item }) {
                     </span>
                   )}
                   <span className="text-xs text-zinc-500">
+                    {detail.time_type === "estimated" ? "예상 " : ""}
                     {detail.start_time} - {detail.end_time}
                   </span>
                   <span className="text-xs text-zinc-500">

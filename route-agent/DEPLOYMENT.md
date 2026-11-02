@@ -1,5 +1,7 @@
 # www.run2yourstyle.com/agent 배포
 
+현재 배포 방식은 **Supabase Edge Function + 기존 Amplify 사이트**입니다. 실제 endpoint와 최신 절차는 [SUPABASE_DEPLOYMENT.md](./SUPABASE_DEPLOYMENT.md)를 사용합니다. 아래 ECS/S3 절차는 이전 방식의 참고 기록이며 현재 배포에는 사용하지 않습니다.
+
 ## Amplify 배포 플랫폼 확인
 
 사용자가 기존 러닝 사이트의 Amplify 앱 ID를 `d26hsuzbpwq4zg`, 연결 저장소를 `semin-pk/runningRouteRecommend_website_FE`의 `main` 브랜치로 알려주었습니다. 운영 프론트는 이 Amplify 앱의 빌드에 통합하는 방식으로 진행합니다. AWS 관리 콘솔의 앱 연결/환경변수/배포 상태는 아직 직접 조회하지 않았습니다.

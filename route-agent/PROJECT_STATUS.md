@@ -4,9 +4,25 @@
 
 현재까지의 진척도 요약은 [PROGRESS.md](./PROGRESS.md)에 별도로 정리되어 있습니다.
 
-`www.run2yourstyle.com/agent/` 배포 준비와 실행 절차는 [DEPLOYMENT.md](./DEPLOYMENT.md)에 정리되어 있습니다. 실제 AWS 배포는 아직 수행하지 않았습니다.
+운영 백엔드는 Supabase Edge Function으로 전환했습니다. 최신 운영 절차와 실제 endpoint는 [SUPABASE_DEPLOYMENT.md](./SUPABASE_DEPLOYMENT.md)에 정리되어 있습니다. 프론트는 기존 Amplify 앱의 `/agent/`에 통합합니다.
 
 사용자가 기존 사이트의 Amplify 앱 ID `d26hsuzbpwq4zg`와 GitHub 저장소 `semin-pk/runningRouteRecommend_website_FE`를 제공했습니다. 해당 저장소의 `codex/route-agent-integration` 작업 브랜치에서 기존 사이트와 Route Agent를 함께 빌드하는 통합 구현 및 검증을 마쳤습니다. 제공된 앱 ID의 AWS 관리 권한으로 설정을 직접 조회하거나 변경한 상태는 아닙니다.
+
+초기 통합 코드는 커밋 `7364649`로 [GitHub 작업 브랜치](https://github.com/semin-pk/runningRouteRecommend_website_FE/tree/codex/route-agent-integration)에 push했습니다. 이후 Supabase 연결 버전을 추가했으며 프론트의 실제 게시 여부는 운영 URL 응답으로 확인합니다.
+
+## 운영 백엔드: Supabase
+
+- 새 프로젝트 생성은 무료 활성 프로젝트 2개 한도로 실패했고, 사용자 선택에 따라 기존 `polerun-test` (`scdpsgypefxtjbrnmovk`)를 사용합니다.
+- `route-agent` Edge Function을 배포했습니다. 기존 테이블/데이터/함수/공통 secrets는 변경하지 않았습니다.
+- API base: `https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent`
+- 상태 확인: `GET /health`, 경로 요청: `POST /api/query`
+- TypeScript/Deno로 이해 → 행동 매핑 → 장소 검색 → 다중 경유 경로 평가 → 최종 메시지 단계를 구현했습니다.
+- Supabase의 런타임 secrets는 `ROUTE_AGENT_OPENAI_API_KEY`, `ROUTE_AGENT_KAKAO_REST_API_KEY`, `ROUTE_AGENT_TMAP_APP_KEY`, `ROUTE_AGENT_CORS_ORIGINS`입니다. 다른 기능과 겹치지 않는 이름만 등록했습니다.
+- 같은 요청 안에서 동일한 구간의 결과를 재사용하고 전체 요청을 120초로 제한합니다. API 실패는 안내 오류를 반환하며 경로를 꾸며내지 않습니다.
+- 응답은 기존 필드를 유지합니다. 대표 장소 도착/출발 시간은 추천 일정 기준으로 계산하며, 직행 시 빈 문자열입니다.
+- 지하철/버스 시각은 소요시간 기반 예상이며 `time_type=estimated`와 UI의 '예상' 표시로 구분합니다.
+- 로그인 없는 기존 호출 흐름을 유지하는 공개 함수입니다. CORS를 인증 수단으로 사용하지 않으며 요청이나 위치를 DB에 저장하지 않습니다.
+- 실제 `/health` 200과 서울역 직행/식당→카페 경유 요청 200을 확인했습니다. 식당 후보에서는 제과·디저트 전문 카테고리를 제외합니다.
 
 ## 현재 목표
 
@@ -15,6 +31,8 @@
 경유 행동이 없는 “오늘 8시까지 일산역에 가야해” 같은 요청은 직행 일정으로 처리하며, 임의의 경유지를 추가하지 않습니다.
 
 ## 백엔드
+
+이하 Python/FastAPI 구성은 로컬 개발 호환용이며, 운영 함수는 `supabase/functions/route-agent/`가 기준입니다.
 
 - FastAPI 앱은 `backend/main.py`에 있으며 `POST /api/query`와 배포용 `GET /health`를 제공합니다.
 - CORS 기본값은 `http://localhost:5173`, `http://127.0.0.1:5173`, `https://www.run2yourstyle.com`입니다. `CORS_ORIGINS` 환경변수로 쉼표 구분 목록을 지정할 수 있습니다.
@@ -27,9 +45,10 @@
   - `departure_time`: 추천 출발 시각입니다.
   - `planned_stay_minutes`: 장소 유형과 목적에 맞춘 계획 체류 시간입니다.
   - `arrival_buffer_minutes`: 약속 장소 도착 여유 시간입니다. 기본값은 10분입니다.
+  - `actual_arrival_buffer_minutes`: Supabase에서 실제 계획 도착 시각 기준으로 계산한 약속까지의 여유 시간입니다.
   - `arrival_time`: 약속 장소 도착 목표 시각입니다.
   - `to_cafe_minutes`: 현재 위치에서 추천 장소까지 이동 시간입니다.
-  - `cafe_arrive_time`: 현재 시각 기준 추천 장소 도착 시각입니다.
+  - `cafe_arrive_time`: 운영 Supabase에서는 추천 일정 기준 대표 장소 도착 시각입니다.
   - `cafe_depart_time`: 약속 장소 도착 목표 시각에서 목적지 이동 시간을 뺀 추천 장소 출발 시각입니다.
   - `to_dest_minutes`: 추천 장소에서 목적지까지 이동 시간입니다.
   - `buffer_minutes`: `arrival_buffer_minutes`와 같은 도착 여유 시간입니다.
@@ -131,11 +150,11 @@ VITE_API_BASE_URL=
 - 기존 도메인이 CloudFront/S3를 사용하며 `/agent/`가 404인 것을 확인했습니다.
 - 기존 사이트의 배포 플랫폼은 사용자 확인에 따라 Amplify로 정리했습니다. 관리형 S3/CloudFront를 직접 수정하는 대신 기존 Amplify 빌드에 `dist/agent/`를 추가합니다.
 - 로컬 `runningRouteRecommend_website_FE` 저장소에 기존 사이트 빌드를 유지하는 `build:site`, agent 빌드 `build:agent`, `amplify.yml`과 진입 경로 rewrite 예시를 추가했습니다.
-- 기존 러닝 사이트의 `VITE_BACKEND_URL`과 구분되는 `VITE_ROUTE_AGENT_API_BASE_URL`을 사용합니다. 미설정 시 기존 사이트만 빌드하므로 백엔드 준비 전에도 원래 배포를 유지할 수 있습니다.
+- 기존 러닝 사이트의 `VITE_BACKEND_URL`은 유지합니다. agent API는 배포된 Supabase 함수가 기본값이며 `VITE_ROUTE_AGENT_API_BASE_URL`로 override할 수 있습니다.
 - 백엔드 서버가 없으므로 ECS Express Mode 기반 배포 절차와 `deployment/ecs-express-service.example.json`을 추가했습니다. 실제 리소스를 생성하지 않았습니다.
 - `backend/Dockerfile`은 non-root 사용자로 포트 8000에서 실행합니다. 이미지에는 `.env`나 API 키를 포함하지 않습니다.
 - `deployment/cloudfront-agent-entry.js`는 `/agent`와 `/agent/`만 `/agent/index.html`로 재작성합니다. 기존 함수가 있으면 해당 조건을 병합해야 합니다.
-- 실제 배포 완료에는 FastAPI 백엔드 생성/런타임 API 키 설정, Amplify의 새 환경변수와 rewrite 설정, 운영 브랜치 재배포가 필요합니다.
+- Supabase 함수 배포와 전용 Secrets 설정은 완료했습니다. 프론트는 운영 브랜치 재배포 후 `/agent/`의 실제 응답을 확인해야 합니다. 별도 API 주소 설정이 없어도 Supabase endpoint를 기본값으로 사용합니다.
 
 ## 외부 API 로그
 
@@ -171,6 +190,7 @@ VITE_API_BASE_URL=
 - CloudFront 진입 경로 재작성을 검증했으며, 운영 API 주소 누락/HTTP 주소 빌드가 차단되는 것을 확인했습니다.
 - 기존 러닝 사이트만 빌드하는 경우와 agent를 함께 빌드하는 경우를 모두 확인했습니다. 두 경우의 기존 루트 HTML이 동일하며 각각의 JS/CSS 파일이 유효한 경로에 존재합니다.
 - Amplify 통합 빌드에서 기존 지도 키 재사용, 별도 HTTPS agent API 주소 삽입 및 localhost API 미포함을 확인했습니다. 검증에는 테스트용 주소를 사용했으며 실제 외부 API 요청은 수행하지 않았습니다.
+- Supabase TypeScript 파이프라인 10개 테스트를 통과했습니다. 실제 배포 함수의 직행/다중 경유 요청이 모두 HTTP 200으로 완료되는 것을 확인했습니다.
 
 ## 앞으로 구현 시 문서 최신화 규칙
 
@@ -190,3 +210,4 @@ VITE_API_BASE_URL=
 - API 스키마, 데이터 흐름, UX, 외부 API 호출 방식에 영향이 큰 변경은 구현 이유와 영향을 짧게 설명합니다.
 - 요구가 모호하거나 잘못 구현하면 위험한 경우에는 진행 전에 확인 질문을 합니다.
 - 구현 변경이 발생하면 이 문서도 함께 최신화합니다.
+- 후속 배포 기능 변경 시 원본 프로젝트와 배포 저장소 `runningRouteRecommend_website_FE/route-agent/`의 소스 및 문서를 함께 반영해 배포본이 오래된 코드로 남지 않도록 합니다.

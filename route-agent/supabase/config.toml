@@ -1,0 +1,6 @@
+project_id = "route-agent"
+
+[functions.route-agent]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/route-agent/index.ts"

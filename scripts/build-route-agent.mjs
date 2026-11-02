@@ -4,12 +4,8 @@ import { loadEnv } from 'vite'
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url))
 const settings = { ...loadEnv('production', projectRoot, 'VITE_'), ...process.env }
-const apiUrl = settings.VITE_ROUTE_AGENT_API_BASE_URL?.trim()
-
-if (!apiUrl) {
-  console.log('Route Agent build skipped: set VITE_ROUTE_AGENT_API_BASE_URL to enable /agent/.')
-  process.exit(0)
-}
+const apiUrl = settings.VITE_ROUTE_AGENT_API_BASE_URL?.trim() ||
+  'https://scdpsgypefxtjbrnmovk.supabase.co/functions/v1/route-agent'
 
 const result = spawnSync(
   process.platform === 'win32' ? 'npm.cmd' : 'npm',

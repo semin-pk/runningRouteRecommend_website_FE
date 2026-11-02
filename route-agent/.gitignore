@@ -9,3 +9,5 @@ __pycache__/
 node_modules/
 dist/
 deployment/ecs-express-service.json
+supabase/.temp/
+supabase/.branches/
