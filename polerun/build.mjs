@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coursePage } from './course-page.mjs';
@@ -19,8 +20,16 @@ const documents=[
   {key:'location',title:'위치정보 이용약관',file:'LOCATION_TERMS.md'},
   {key:'disclosures',title:'운영·외부 서비스 안내',file:'DISCLOSURES.md'},
 ];
+const policyManifest=JSON.parse(fs.readFileSync(path.join(root,'policy-manifest.json'),'utf8'));
+if(!/^\d+\.\d+(?:\.\d+)?$/.test(policyManifest.version)||!['draft','published'].includes(policyManifest.status))throw new Error('Invalid policy manifest');
+if(policyManifest.status==='published'&&!/^\d{4}-\d{2}-\d{2}$/.test(policyManifest.effectiveDate??''))throw new Error('Missing policy effective date');
+for(const doc of documents){
+  const raw=fs.readFileSync(path.join(root,'content',doc.file),'utf8');
+  if(createHash('sha256').update(raw).digest('hex')!==policyManifest.documentHashes?.[doc.key])throw new Error(`Policy source hash mismatch: ${doc.key}`);
+}
 fs.mkdirSync(dist,{recursive:true});
 fs.copyFileSync(path.join(root,'style.css'),path.join(dist,'style.css'));
+fs.writeFileSync(path.join(dist,'policy-manifest.json'),JSON.stringify(policyManifest,null,2)+'\n');
 fs.mkdirSync(path.join(dist,'assets'),{recursive:true});
 fs.copyFileSync(path.join(root,'assets/icon.png'),path.join(dist,'assets/icon.png'));
 const courseConfig=JSON.parse(fs.readFileSync(path.join(root,'course-config.json'),'utf8'));
@@ -62,7 +71,7 @@ function markdown(source){
   }
   flush();return html;
 }
-const notice=`<aside class="notice" aria-label="정책 시행 안내"><strong>정식 서비스 개시 전 공개 안내</strong>정책은 정식 서비스 개시일부터 시행할 예정입니다. 개시일과 운영자 공시·외부 처리의 세부 사항을 확인한 뒤 안내를 보완합니다. 현재 문서를 시행 중인 최종 정책이나 동의 완료로 표시하지 않습니다.</aside>`;
+const notice=policyManifest.status==='published'?`<aside class="notice" aria-label="정책 시행 안내"><strong>정책 안내</strong>시행일: ${esc(policyManifest.effectiveDate)}. 적용되는 처리·권리·연락처를 아래 문서에서 확인해 주세요.</aside>`:`<aside class="notice" aria-label="정책 시행 안내"><strong>정식 서비스 개시 전 공개 안내</strong>정책은 정식 서비스 개시일부터 시행할 예정입니다. 개시일과 운영자 공시·외부 처리의 세부 사항을 확인한 뒤 안내를 보완합니다. 현재 문서를 시행 중인 최종 정책이나 동의 완료로 표시하지 않습니다.</aside>`;
 function page(title,body,current='',description='같은 코스, 더 나은 기록. PoleRun의 러닝 코스·기록 경쟁과 문의·정책을 안내합니다.'){
   const route=current?`/${current}/`:'/';
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8">${verificationMeta}<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${esc(description)}"><meta name="theme-color" content="#0c120e"><meta name="color-scheme" content="dark"><meta property="og:type" content="website"><meta property="og:site_name" content="PoleRun"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${base}${route}"><meta property="og:image" content="${base}/assets/icon.png"><link rel="canonical" href="${base}${route}"><link rel="icon" type="image/png" href="/assets/icon.png"><link rel="stylesheet" href="/style.css"><title>${esc(title)}${current?' | PoleRun':''}</title></head><body><a class="skip" href="#main">본문 바로가기</a><header class="site-header"><div class="wrap header-row"><a class="brand" href="/" aria-label="PoleRun 홈"><img src="/assets/icon.png" width="38" height="38" alt=""><span>Pole<em>Run</em></span></a><nav class="nav" aria-label="주요 메뉴"><a class="desktop-link" href="/#how">앱 소개</a><a href="/privacy/"${current==='privacy'?' aria-current="page"':''}>개인정보</a><a class="nav-contact" href="/support/"${current==='support'?' aria-current="page"':''}>문의·도움말 <span aria-hidden="true">↗</span></a></nav></div></header><main id="main">${body}</main><footer class="site-footer"><div class="wrap footer-row"><div><nav class="footer-links" aria-label="정책과 지원">${documents.map(doc=>`<a href="/${doc.key}/">${doc.title}</a>`).join('')}<a href="/support/">문의·도움말</a></nav><p>운영자 박세민 · <a href="mailto:${email}">${email}</a></p><p>정식 서비스 출시 준비 중 · 대한민국 · iPhone 우선</p></div><p class="copyright">© 2026 PoleRun</p></div></footer></body></html>`;
@@ -80,9 +89,9 @@ write('support',page('문의·도움말',support,'support','PoleRun 문의, 신�
 write('courses',page('함께 달릴 코스',coursePage,'courses','공유받은 PoleRun 코스의 경로·거리·출발·도착 정보를 로그인 없이 확인하세요.').replace('</head>','<meta name="robots" content="noindex,follow"><link rel="stylesheet" href="/course.css"></head>'));
 for(const doc of documents){
   const source=fs.readFileSync(path.join(root,'content',doc.file),'utf8');
-  const nav=`<aside class="doc-nav" aria-label="정책 문서">${documents.map(item=>`<a href="/${item.key}/"${item.key===doc.key?' aria-current="page"':''}>${item.title}</a>`).join('')}<a href="/support/">문의·도움말</a><small>공개 안내: 2026년 10월 21일<br>문서 버전: 1.0<br>시행 예정: 정식 서비스 개시일</small></aside>`;
+  const nav=`<aside class="doc-nav" aria-label="정책 문서">${documents.map(item=>`<a href="/${item.key}/"${item.key===doc.key?' aria-current="page"':''}>${item.title}</a>`).join('')}<a href="/support/">문의·도움말</a><small>문서 버전: ${esc(policyManifest.version)}<br>${policyManifest.status==='published'?'시행일: '+esc(policyManifest.effectiveDate):'정식 시행 전 검토 안내'}</small></aside>`;
   const body=`${heading(doc.title,'수집·이용·공개·보관·삭제와 서비스 이용 기준을 확인하세요.','POLERUN / POLICY')}<div class="wrap doc-layout">${nav}<article class="doc-body">${notice}${markdown(source)}</article></div>`;
-  write(doc.key,page(doc.title,body,doc.key,`PoleRun ${doc.title}. 서비스 개시 전 공개 안내이며 정식 서비스 개시일부터 시행할 예정입니다.`));
+  write(doc.key,page(doc.title,body,doc.key,`PoleRun ${doc.title}. 적용 범위와 시행 안내를 확인하세요.`).replace('</head>',`<meta name="polerun-policy-version" content="${esc(policyManifest.version)}"><meta name="polerun-policy-sha256" content="${policyManifest.documentHashes[doc.key]}"></head>`));
 }
 fs.writeFileSync(path.join(dist,'404.html'),prefixHtml(page('페이지를 찾을 수 없어요','<section class="wrap not-found"><span class="eyebrow">404 / NOT FOUND</span><h1>페이지를 찾을 수 없어요</h1><p>주소를 확인하거나 PoleRun 홈으로 이동해 주세요.</p><a class="button" href="/">홈으로 이동하기 →</a></section>')));
 const routes=['','privacy','terms','location','disclosures','support'];

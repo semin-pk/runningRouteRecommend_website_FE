@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.dirname(fileURLToPath(import.meta.url))
 const dist = path.resolve(root, '../dist/polerun')
 const base = 'https://www.run2yourstyle.com/polerun/'
+const manifest=JSON.parse(fs.readFileSync(path.join(dist,'policy-manifest.json'),'utf8'))
 const pages = ['', 'privacy', 'terms', 'location', 'disclosures', 'support', 'courses']
 for (const page of pages) {
   const file = path.join(dist, page, 'index.html')
@@ -32,6 +33,10 @@ assert.equal(claims.role, 'anon')
 assert.equal(claims.ref, 'eypglnhhnjmxilvezhrg')
 assert.ok(fs.readFileSync(path.join(dist, 'sitemap.xml'), 'utf8').includes(base + 'privacy/'))
 for (const route of ['privacy', 'terms', 'location', 'disclosures']) {
-  assert.ok(fs.readFileSync(path.join(dist, route, 'index.html'), 'utf8').includes('정식 서비스 개시 전 공개 안내'))
+  const html=fs.readFileSync(path.join(dist, route, 'index.html'), 'utf8')
+  assert.ok(html.includes(manifest.status==='published'?'정책 안내':'정식 서비스 개시 전 공개 안내'))
+  assert.ok(html.includes(`문서 버전: ${manifest.version}`))
+  assert.ok(html.includes(`name="polerun-policy-version" content="${manifest.version}"`))
+  assert.ok(html.includes(`name="polerun-policy-sha256" content="${manifest.documentHashes[route]}"`))
 }
 console.log('PoleRun: 7 pages, scoped links/assets, privacy status, public course key and ad-free HTML verified.')

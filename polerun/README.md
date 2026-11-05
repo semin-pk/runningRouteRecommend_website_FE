@@ -13,3 +13,5 @@ Source content was migrated from PoleRun's `sites/polerun-public` on 2026-11-05.
 The current host resolves directory index pages and redirects paths without a trailing slash. Verify all routes after Amplify publishes the build; do not replace the existing website or `/agent` rewrite rules. The root build script and existing Amplify environment remain in use.
 
 `node polerun/check.mjs` validates scoped internal links, assets, canonical URLs, support information, pre-launch policy status and the public API key role. Google domain ownership and branding URLs must also be verified in the operator's Google project; copying a verification tag is not proof that a new domain is verified.
+
+Policy source is synchronized from PoleRun canonical manuscripts by `scripts/sync-public-policy-pages.mjs --website-root <this repository>`. `policy-manifest.json` records version, preview/publication status, effective date and document hashes. The builder checks each source hash and emits matching policy metadata; preview publication never activates server consent.
