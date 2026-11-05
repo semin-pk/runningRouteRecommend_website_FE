@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:site && npm run build:agent",
+    "build": "npm run build:site && npm run build:agent && npm run build:polerun",
     "build:site": "vite build",
     "build:agent": "node scripts/build-route-agent.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:polerun": "node polerun/build.mjs && node polerun/check.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.3",
