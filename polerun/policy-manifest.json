@@ -1,11 +1,11 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "status": "draft",
   "effectiveDate": null,
   "documentHashes": {
-    "terms": "0f6b23baf94e0693e71098502b171b40a81c7df62c9f51441197c81eebd58a3d",
-    "privacy": "6aeec45d5f45609f78d25fe0167c73c01645142abc3a61f9a7fb88a49b0ab288",
-    "location": "c8aac56110206b6af1ccc9cb9d8bd26626ab72199daf203a9a704977d1818979",
-    "disclosures": "e0505ae4f8f06366438f7bff9d8422be3dee6b90738263337dcd32714307ca79"
+    "terms": "40e386a18d13fdcb9e84b783b4a846933802544aa65aba36daefb8744dffb322",
+    "privacy": "e679bef83e071efadcdcdbaffa061e44ab6fc77c5a2fead9e855623a8c6fd58d",
+    "location": "2a9371cf7e661231091f575918b093ea0479de4cbdbd9a26842c10bb5879be0e",
+    "disclosures": "bea62705166e58ffdbfb7a61e6e3d623a281ca5a2aafa3582a1624a6420bb93d"
   }
 }
