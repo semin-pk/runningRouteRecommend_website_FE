@@ -1,11 +1,11 @@
 {
-  "version": "1.3",
-  "status": "draft",
-  "effectiveDate": "2026-11-30",
+  "version": "1.4",
+  "status": "published",
+  "effectiveDate": "2026-11-17",
   "documentHashes": {
-    "terms": "e8c9fe6e429aa9fb3766180559df691eee17ae2010dc27006243e082be35a407",
-    "privacy": "5b7b4bbc2297d43b90b27efdf188549d74cbdaede901541b753fc20b793bbafd",
-    "location": "3d4ad41e09894d3c7c8ed6bec516487ac5b7a8d38c24f30ab5342965b4d1de23",
-    "disclosures": "515cbaef6c0b2c590495be1ffa7ad6fb19dae228cbb0c0e81c7ab54233e7ff29"
+    "terms": "66de01b6de7ebf38c2efb8c93006f7165d8422dc5498e547665c314e9f55400a",
+    "privacy": "62d1d161a1491e871ac82dba8c5e209ea2671d6e6083164a2bb217cf9c4f6de4",
+    "location": "1fe56be03167c85a914da3970e06bf0b653b3e5b29db69b400be22b70f9cf17d",
+    "disclosures": "fd54567d4b630703fca9e33a19cefeedae74217e2416fd6260003b2994567d28"
   }
 }

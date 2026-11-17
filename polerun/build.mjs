@@ -28,6 +28,8 @@ for(const doc of documents){
   if(createHash('sha256').update(raw).digest('hex')!==policyManifest.documentHashes?.[doc.key])throw new Error(`Policy source hash mismatch: ${doc.key}`);
 }
 fs.mkdirSync(dist,{recursive:true});
+const historyRoot=path.join(root,'history');
+if(fs.existsSync(historyRoot))fs.cpSync(historyRoot,path.join(dist,'history'),{recursive:true});
 fs.copyFileSync(path.join(root,'style.css'),path.join(dist,'style.css'));
 fs.writeFileSync(path.join(dist,'policy-manifest.json'),JSON.stringify(policyManifest,null,2)+'\n');
 fs.mkdirSync(path.join(dist,'assets'),{recursive:true});
@@ -89,14 +91,14 @@ write('support',page('문의·도움말',support,'support','PoleRun 문의, 신�
 write('courses',page('함께 달릴 코스',coursePage,'courses','공유받은 PoleRun 코스의 경로·거리·출발·도착 정보를 로그인 없이 확인하세요.').replace('</head>','<meta name="robots" content="noindex,follow"><link rel="stylesheet" href="/course.css"></head>'));
 for(const doc of documents){
   const source=fs.readFileSync(path.join(root,'content',doc.file),'utf8');
-  const nav=`<aside class="doc-nav" aria-label="정책 문서">${documents.map(item=>`<a href="/${item.key}/"${item.key===doc.key?' aria-current="page"':''}>${item.title}</a>`).join('')}<a href="/support/">문의·도움말</a><small>문서 버전: ${esc(policyManifest.version)}<br>${policyManifest.status==='published'?'시행일: '+esc(policyManifest.effectiveDate):'정식 시행 전 검토 안내'}</small></aside>`;
+  const nav=`<aside class="doc-nav" aria-label="정책 문서">${documents.map(item=>`<a href="/${item.key}/"${item.key===doc.key?' aria-current="page"':''}>${item.title}</a>`).join('')}<a href="/support/">문의·도움말</a><a href="/history/1.3/${doc.key}/">이전 문서1.3 보기</a><small>문서 버전: ${esc(policyManifest.version)}<br>${policyManifest.status==='published'?'시행일: '+esc(policyManifest.effectiveDate):'정식 시행 전 검토 안내'}</small></aside>`;
   const body=`${heading(doc.title,'수집·이용·공개·보관·삭제와 서비스 이용 기준을 확인하세요.','POLERUN / POLICY')}<div class="wrap doc-layout">${nav}<article class="doc-body">${notice}${markdown(source)}</article></div>`;
   write(doc.key,page(doc.title,body,doc.key,`PoleRun ${doc.title}. 적용 범위와 시행 안내를 확인하세요.`).replace('</head>',`<meta name="polerun-policy-version" content="${esc(policyManifest.version)}"><meta name="polerun-policy-sha256" content="${policyManifest.documentHashes[doc.key]}"></head>`));
 }
 fs.writeFileSync(path.join(dist,'404.html'),prefixHtml(page('페이지를 찾을 수 없어요','<section class="wrap not-found"><span class="eyebrow">404 / NOT FOUND</span><h1>페이지를 찾을 수 없어요</h1><p>주소를 확인하거나 PoleRun 홈으로 이동해 주세요.</p><a class="button" href="/">홈으로 이동하기 →</a></section>')));
 const routes=['','privacy','terms','location','disclosures','support'];
 fs.writeFileSync(path.join(dist,'robots.txt'),`User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`);
-fs.writeFileSync(path.join(dist,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${routes.map(route=>`<url><loc>${base}/${route?route+'/':''}</loc><lastmod>2026-11-05</lastmod></url>`).join('')}</urlset>`);
+fs.writeFileSync(path.join(dist,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${routes.map(route=>`<url><loc>${base}/${route?route+'/':''}</loc><lastmod>${esc(policyManifest.effectiveDate ?? "2026-11-17")}</lastmod></url>`).join('')}</urlset>`);
 // Package the generated output, not local environment files or app credentials.
 for(const route of routes){
   const html=fs.readFileSync(path.join(dist,route,'index.html'),'utf8');
